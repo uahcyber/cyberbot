@@ -24,4 +24,6 @@ DISCORD_GUILD="My Server Name"
 Running
 -------
 
-`cyberbot`
+In a terminal, run:
+
+`$ cyberbot`
