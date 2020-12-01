@@ -16,10 +16,9 @@
 # along with CyberBot.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-import discord
 from .cyberbot import CyberBot
 
-client = CyberBot()
+client = CyberBot(clubname="UAH Cybersecurity Club")
 
 def main():
     client.run()

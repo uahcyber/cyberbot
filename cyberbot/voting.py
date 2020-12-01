@@ -83,7 +83,7 @@ class Voting:
                     # user has already voted for this position
                     return f"You have already voted for the position of {position} in this election. Votes are final."
         if not candidate:
-            return f"{username} was not found in the {clubname} server!"
+            return f"{username} was not found in the {self.clubname} server!"
         castvote = False
         for cand in self.candidates:
             if cand.user == candidate:
@@ -171,7 +171,7 @@ class Voting:
             return "Position is not up for election."
         nominee = discord.utils.get(client.guild.members, name=username.split('#')[0], discriminator=username.split('#')[1])
         if not nominee:
-            return f"User {username} was not found in the {clubname} server!"
+            return f"User {username} was not found in the {self.clubname} server!"
         for nom in self.nominations:
             if user.id in nom.by:
                 return "You have already nominated someone for a position."
@@ -198,7 +198,7 @@ class Voting:
                 nomexists = True
         if not nomexists:
             if not self.__is_nominee_eligible(nominee):
-                return f"{nominee.name} does not meet the qualifications for an officer position in the {clubname}."
+                return f"{nominee.name} does not meet the qualifications for an officer position in the {self.clubname}."
             self.users_waiting_for_nom.append(user.id)
             if nominee != user:
                 await send_dm(nominee, f"You have been nominated for the officer position: {position.capitalize()} of the UAH Cybersecurity Club!\nIf you accept, please indicate as such by replying with:\n`!nominate accept`\nIf you do **NOT** accept, reply with:\n`!nominate reject`")

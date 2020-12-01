@@ -29,12 +29,13 @@ class CyberBot(discord.Client):
     guild = None
     election = None
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,clubname,*args,**kwargs):
         intents = discord.Intents.default()
         intents.members = True # for seeing members of the server
         super(self.__class__,self).__init__(intents=intents,*args,**kwargs)
         self.guild_name = os.getenv('DISCORD_GUILD')
         self.token = os.getenv('DISCORD_TOKEN')
+        self.clubname = clubname
 
     async def on_ready(self):
         self.guild = discord.utils.find(lambda g: g.name == self.guild_name, self.guilds)
@@ -56,7 +57,7 @@ class CyberBot(discord.Client):
     
     def start_election_instance(self):
         from .voting import Voting
-        self.election = Voting("UAH Cybersecurity Club")
+        self.election = Voting(self.clubname)
 
     def end_election_instance(self):
         self.election = None

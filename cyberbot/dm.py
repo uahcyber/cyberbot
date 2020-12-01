@@ -30,7 +30,7 @@ async def handle_dm(user, msg=None):
         user = discord.utils.get(client.guild.members,name=user.name, discriminator=user.discriminator)
         user_roles = [role.name for role in user.roles]
         if "Member" not in user_roles:
-            tosend = f"It does not seem like you are a member of the {clubname} server."
+            tosend = f"It does not seem like you are a member of the {client.clubname} server."
             return tosend
         if pieces[0] == "!nominate":
             if client.election and client.election.nomination_started:
@@ -77,7 +77,8 @@ async def member_stats(user,command):
         history = await member.history().flatten()
         for h in history:
             if isinstance(h.content,str):
-                if "flags=<MessageFlags " not in h.content:
+                # don't show message history if invalid or a private vote/nominations
+                if not ("flags=<MessageFlags " in h.content or "!vote" in h.content or "!nominate" in h.content):
                     messagestr = f"**{h.author.name}#{h.author.discriminator} "
                     channel = h.channel
                     if hasattr(channel,'recipient'):
