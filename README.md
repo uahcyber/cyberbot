@@ -3,6 +3,20 @@ CyberBot
 
 UAH Cybersecurity Club Discord bot
 
+Features
+--------
+
+  * Assign membership on rule accepts
+  * Remind non-members to accept rules weekly
+  * Officer commands
+    * dump channel logs
+  * Full club officer nomination/election system
+    * Anonymous voting
+    * Anonymous nominations
+    * Officer eligibility requirements
+    * Nominated member can accept or reject the nomination
+    * No double voting for a specific nominee or position
+
 Setup
 -----
 
