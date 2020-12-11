@@ -21,6 +21,8 @@ DISCORD_TOKEN=j64f3UePWeSWRzSYIu.P00j6y.tzDTMObXakj9Kqof
 DISCORD_GUILD="My Server Name"
 ```
 
+You can optionally set the club name by passing the `clubname` parameter to `CyberBot()` in [cyberbot/run.py](cyberbot/run#L21).
+
 Running
 -------
 

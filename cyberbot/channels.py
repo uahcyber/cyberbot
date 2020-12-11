@@ -30,6 +30,7 @@ async def handle_rule_accept_channel(message,role_name):
                 print(f"[ERROR]: could not find role '{role_name}'!")
                 return
             await message.author.add_roles(role)
+            client.non_members.remove(message.author.id)
             print(f"Added {message.author.name} to role {role}")
 
 @officers_only
