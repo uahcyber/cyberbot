@@ -46,6 +46,8 @@ async def handle_dm(user, msg=None):
             tosend = await member_stats(user,pieces[1] if len(pieces) > 1 else "") or tosend
         elif pieces[0] == "!dump":
             tosend = await get_channel_messages(user,pieces[1] if len(pieces) > 1 else "") or tosend
+        elif pieces[0] == '!nonmembers':
+            tosend = await get_nonmembers(user) or tosend
     await send_dm(user,tosend)
 
 @officers_only
@@ -137,3 +139,10 @@ async def get_channel_messages(user,params):
     os.remove(f"/tmp/{newfile.filename}")
     return f'dumped chat log for {channel.name}'
 
+@officers_only
+async def get_nonmembers(user):
+    tosend = ''
+    for member_id in client.non_members:
+        member = discord.utils.get(client.guild.members,id=member_id)
+        tosend += f'{member.nick or member.name} ({member.name}#{member.discriminator}), '
+    return tosend

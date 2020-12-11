@@ -91,7 +91,8 @@ class CyberBot(discord.Client):
         from .utils import send_dm
         rules_channel_id = discord.utils.get(self.guild.channels,name='rules').id
         accept_rules_id = discord.utils.get(self.guild.channels,name='accept-rules-here').id
-        for member in self.non_members:
+        for member_id in self.non_members:
+            member = discord.utils.get(self.guild.members,id=member_id)
             await send_dm(member,(f"Hi! We at the {self.clubname} noticed you hadn't accepted"
                                 " the rules yet for our server.\n\nPlease first read the rules"
                                 f" in <#{rules_channel_id}>, then visit the <#{accept_rules_id}>"
