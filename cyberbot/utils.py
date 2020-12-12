@@ -61,3 +61,6 @@ def parse_username_and_friend(toparse):
     if len(halved) != 2:
         return None
     return halved
+
+def diff_lists(a, b):
+    return (list(list(set(a)-set(b)) + list(set(b)-set(a))))

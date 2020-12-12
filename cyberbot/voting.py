@@ -21,7 +21,7 @@ import discord
 from dataclasses import dataclass, field
 from typing import List
 from .run import client
-from .utils import send_dm, parse_username_and_friend
+from .utils import diff_lists, send_dm, parse_username_and_friend
 
 @dataclass
 class Nomination:
@@ -318,26 +318,30 @@ class Voting:
         return results
 
 
-    def __is_member_eligible(self,nominee):
+    def __is_member_eligible(self,nominee,msg_count=4, semester_length=16):
+        now = arrow.utcnow()
+        # semester_length in weeks
         # must be a member for at least 1 semester
-        semester_length = 16 # weeks
         if nominee.joined_at:
-            member_for = (arrow.utcnow() - arrow.get(nominee.joined_at)).days
+            member_for = (now - arrow.get(nominee.joined_at)).days
             if member_for < (semester_length * 7):
                 return False
         # must be presently enrolled at university
         nom_roles = [role.name for role in nominee.roles]
         if "Alum" in nom_roles or "Member" not in nom_roles:
             return False
-        nom_msgs = list(filter(lambda x: (x.author.id == nominee.id), self.messages))
-        if len(nom_msgs) < 35:
+        # user should have sent a certain number of messages in the past semester
+        # checks if half of the messages were sent in the first half of the semester and half in the last
+        nom_msgs = [x for x in self.messages if (x.author.id == nominee.id) and ((now - arrow.get(x.created_at)).days < semester_length * 7)]
+        first_half_msgs  = [x for x in nom_msgs if (arrow.get(x.created_at)) < now.shift(weeks=-semester_length/2)]
+        if (len(first_half_msgs) < msg_count/2) or (len(diff_lists(nom_msgs,first_half_msgs)) < msg_count/2):
             return False
         return True
 
 
     def __get_nomination_start_string(self):
         memberlist = 'Eligible members for nomination:\n'
-        memberlist += '\n'.join(f'\t**{member.nick or member.name}** (`{member.name}#{member.discriminator}`)' for member in self.eligible_members)
+        memberlist += '\n'.join(f'\t- <@{member.id}> (`{member.name}#{member.discriminator}`)' for member in self.eligible_members)
         position_list = ''
         for pos in self.positions_to_elect:
             position_list += f'\t- **{pos.capitalize()}**\n'
