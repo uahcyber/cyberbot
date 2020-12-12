@@ -59,7 +59,8 @@ class Voting:
     candidates = []
     voters = []
     users_waiting_for_nom = []
-
+    messages = []
+    eligible_members = []
 
     def __init__(self,clubname):
         self.clubname = clubname
@@ -197,7 +198,7 @@ class Voting:
                     await send_dm(user, bad_input)
                 nomexists = True
         if not nomexists:
-            if not self.__is_nominee_eligible(nominee):
+            if nominee not in self.eligible_members:
                 return f"{nominee.name} does not meet the qualifications for an officer position in the {self.clubname}."
             self.users_waiting_for_nom.append(user.id)
             if nominee != user:
@@ -225,7 +226,7 @@ class Voting:
         return tosend
 
 
-    def start_nomination(self,pieces):
+    async def start_nomination(self,pieces):
         if not pieces:
             return "Please specify positions to add.\nExample:\n\t`!nomination start Treasurer President Secretary`"
         # 0, 1 indices are !nomination start
@@ -233,7 +234,9 @@ class Voting:
             # already started
             return "The nomination period has already started.\nTo restart, run:\n\t`!nomination stop clear`\nthen,\n\t`!nomination start`"
         self.positions_to_elect.extend([pos.lower() for pos in pieces])
+        await self.__populate_messages()
         self.nomination_started = True
+        self.eligible_members = self.__get_eligible_members()
         return self.__get_nomination_start_string()
 
 
@@ -242,6 +245,8 @@ class Voting:
         if pieces == "clear":
             self.positions_to_elect.clear()
             self.nominations.clear()
+            self.messages.clear()
+            self.eligible_members.clear()
             tosend += ", positions up for election have been cleared"
             self.nomination_started = False
             return tosend + '.'
@@ -254,6 +259,8 @@ class Voting:
             if position_nominated:
                 continue
             return "There are still empty positions that do not have nominees, nominations will continue."
+        self.eligible_members.clear()
+        self.messages.clear()
         self.nomination_started = False
         return tosend + '.'
 
@@ -288,7 +295,15 @@ class Voting:
         results = self.get_votes()
         self.election_started = False
         return "Election has ended.\n" + results
+
     
+    def __get_eligible_members(self):
+        eligible = []
+        for member in client.guild.members:
+            if self.__is_member_eligible(member):
+                eligible.append(member)
+        return eligible
+
 
     def __sort_candidate_votes(self):
         results = []
@@ -303,25 +318,30 @@ class Voting:
         return results
 
 
-    def __is_nominee_eligible(self,nominee):
+    def __is_member_eligible(self,nominee):
         # must be a member for at least 1 semester
-        semester_length = 18 # weeks
+        semester_length = 16 # weeks
         if nominee.joined_at:
             member_for = (arrow.utcnow() - arrow.get(nominee.joined_at)).days
             if member_for < (semester_length * 7):
                 return False
         # must be presently enrolled at university
         nom_roles = [role.name for role in nominee.roles]
-        if "Alum" in nom_roles:
+        if "Alum" in nom_roles or "Member" not in nom_roles:
+            return False
+        nom_msgs = list(filter(lambda x: (x.author.id == nominee.id), self.messages))
+        if len(nom_msgs) < 35:
             return False
         return True
 
 
     def __get_nomination_start_string(self):
+        memberlist = 'Eligible members for nomination:\n'
+        memberlist += '\n'.join(f'\t**{member.nick or member.name}** (`{member.name}#{member.discriminator}`)' for member in self.eligible_members)
         position_list = ''
         for pos in self.positions_to_elect:
             position_list += f'\t- **{pos.capitalize()}**\n'
-        return  (f"Nominations may now begin.\nPositions up for election:\n\n{position_list}\nInstructions:\n"
+        return  (f"{memberlist}\n\nNominations may now begin.\nPositions up for election:\n\n{position_list}\nInstructions:\n"
                     f"Send a **direct message** to <@{client.user.id}> specifying who, if anyone, you would "
                     "like to nominate in the following format:\n\t`!nominate [full user id] [position]`\n"
                     "Example nominations:\n\t`!nominate ClubMember#1234 Treasurer`\n\t`!nominate Other ClubMember#1234 Treasurer`")
@@ -337,3 +357,15 @@ class Voting:
         return (f"Votes may now be cast.\nPositions up for election and their candidates:\n\n{position_list}\nInstructions:\n"
                     f"Send a **direct message** to <@{client.user.id}> specifying who you want to elect"
                     "by sending the associated `!vote` command as listed above.")
+    
+    async def __populate_messages(self):
+        for channel in client.guild.channels:
+            if not (channel and isinstance(channel,discord.TextChannel)):
+                continue
+            me = discord.utils.get(client.guild.members,name=client.user.name,discriminator=client.user.discriminator)
+            if not (channel.permissions_for(me).read_message_history and channel.permissions_for(me).read_messages):
+                continue
+            history = await channel.history(limit=None).flatten()
+            if not history or len(history) == 0:
+                continue
+            self.messages.extend(history)

@@ -16,6 +16,7 @@ Features
     * Officer eligibility requirements
     * Nominated member can accept or reject the nomination
     * No double voting for a specific nominee or position
+  * Kick new bot users unless specifically allowed
 
 Setup
 -----

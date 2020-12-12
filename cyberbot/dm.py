@@ -47,7 +47,7 @@ async def handle_dm(user, msg=None):
         elif pieces[0] == "!dump":
             tosend = await get_channel_messages(user,pieces[1] if len(pieces) > 1 else "") or tosend
         elif pieces[0] == '!nonmembers':
-            tosend = await get_nonmembers(user) or tosend
+            tosend = get_nonmembers(user) or tosend
     await send_dm(user,tosend)
 
 @officers_only
@@ -140,9 +140,20 @@ async def get_channel_messages(user,params):
     return f'dumped chat log for {channel.name}'
 
 @officers_only
-async def get_nonmembers(user):
+def get_nonmembers(user):
     tosend = ''
     for member_id in client.non_members:
         member = discord.utils.get(client.guild.members,id=member_id)
         tosend += f'{member.nick or member.name} ({member.name}#{member.discriminator}), '
     return tosend
+
+async def alert_nonmembers():
+    rules_channel_id = discord.utils.get(client.guild.channels,name='rules').id
+    accept_rules_id = discord.utils.get(client.guild.channels,name='accept-rules-here').id
+    for member_id in client.non_members:
+        member = discord.utils.get(client.guild.members,id=member_id)
+        await send_dm(member,(f"Hi! We at the {client.clubname} noticed you hadn't accepted"
+                            " the rules yet for our server.\n\nPlease first read the rules"
+                            f" in <#{rules_channel_id}>, then visit the <#{accept_rules_id}>"
+                            " channel and type `I accept` to get full access to the server.\nIf you"
+                            " would like to leave the server, you may do so."))

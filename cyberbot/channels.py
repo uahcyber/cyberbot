@@ -52,7 +52,8 @@ async def handle_election_channel(message):
             ret = "A nomination is not currently in session."
             if split_slices[0] == "start":
                 client.start_election_instance() # kick off election
-                ret = client.election.start_nomination(split_slices[1].split(' ') if len(split_slices) > 1 else None)
+                await message.channel.send("Setting up nomination data (this will take just a minute)...")
+                ret = await client.election.start_nomination(split_slices[1].split(' ') if len(split_slices) > 1 else None)
                 # end election instance if nomination start was executed incorrectly
                 await message.channel.send(ret)
                 if "Please specify" in ret:

@@ -30,6 +30,7 @@ class CyberBot(discord.Client):
 
     guild = None
     election = None
+    allowed_bots = ["CyberBot"]
     non_members = []
     
 
@@ -52,7 +53,7 @@ class CyberBot(discord.Client):
             if not ("Member" in roles or "CyberBot" in roles):
                 self.non_members.append(member.id)
         print(f"There are currently {len(self.non_members)} non-members in the server.")
-        self.alert_nonmembers.start()
+        self.scheduled_tasks.start()
 
 
     async def on_message(self, message):
@@ -68,36 +69,45 @@ class CyberBot(discord.Client):
         elif message.channel.name == "elections":
             await handle_election_channel(message)
 
+
     async def on_member_join(self, member):
+        # prevent other bots from being invited in
+        roles = [role.name for role in member.roles]
+        is_allowed = False
+        for bot in self.allowed_bots:
+            if bot in roles:
+                is_allowed = True
+                break
+        if member.bot and not is_allowed:
+            print(f"kicking {member.name} for being a bot")
+            member.kick(reason="No bot users allowed on this server.")
+            return
+        # go ahead and set user as non-member status
         self.non_members.append(member.id)
+
 
     async def on_member_remove(self,member):
         # remove user from self.non_members if they leave without accepting the rules
         if member.id in self.non_members:
             self.non_members.remove(member.id)
 
+
     def start_election_instance(self):
         from .voting import Voting
         self.election = Voting(self.clubname)
 
+
     def end_election_instance(self):
         self.election = None
 
+
     @tasks.loop(seconds=60.0)
-    async def alert_nonmembers(self):
-        # only alert users at 12:00 PM every Saturday
-        if arrow.now('US/Central').format('ddd-HH:mm') != 'Sat-12:00':
-            return
-        from .utils import send_dm
-        rules_channel_id = discord.utils.get(self.guild.channels,name='rules').id
-        accept_rules_id = discord.utils.get(self.guild.channels,name='accept-rules-here').id
-        for member_id in self.non_members:
-            member = discord.utils.get(self.guild.members,id=member_id)
-            await send_dm(member,(f"Hi! We at the {self.clubname} noticed you hadn't accepted"
-                                " the rules yet for our server.\n\nPlease first read the rules"
-                                f" in <#{rules_channel_id}>, then visit the <#{accept_rules_id}>"
-                                " channel and type `I accept` to get full access to the server.\nIf you"
-                                " would like to leave the server, you may do so."))
+    async def scheduled_tasks(self):
+        current_time = arrow.now('US/Central').format('ddd-HH:mm')
+        if current_time == 'Sat-12:00':
+            from .dm import alert_nonmembers
+            await alert_nonmembers()
+
 
     def run(self,*args,**kwargs):
         super(self.__class__,self).run(self.token,*args,**kwargs)
