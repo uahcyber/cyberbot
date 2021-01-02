@@ -21,7 +21,7 @@ import discord
 import os
 from .run import client
 from .voice import is_member_in_voice_channel
-from .utils import make_file, officers_only, send_dm, parse_username_and_friend
+from .utils import make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
 
 async def handle_dm(user, msg=None):
     tosend = "beep beep boop boop, whatcha doin?"
@@ -52,7 +52,7 @@ async def handle_dm(user, msg=None):
         elif pieces[0] == "!dump":
             tosend = await get_channel_messages(user,pieces[1] if len(pieces) > 1 else "") or tosend
         elif pieces[0] == '!nonmembers':
-            tosend = get_nonmembers(user) or tosend
+            tosend = await get_nonmembers(user) or tosend
     await send_dm(user,tosend)
 
 @officers_only
@@ -85,14 +85,15 @@ async def member_stats(user,command):
         for h in history:
             if isinstance(h.content,str):
                 # don't show message history if invalid or a private vote/nominations
-                if not ("flags=<MessageFlags " in h.content or "!vote" in h.content or "!nominate" in h.content):
+                if not ("flags=<MessageFlags " in h.content):
                     messagestr = f"**{h.author.name}#{h.author.discriminator} "
                     channel = h.channel
                     if hasattr(channel,'recipient'):
                         messagestr += f"-> {h.channel.recipient.name}#{h.channel.recipient.discriminator}: "
                     else:
                         messagestr += f"-> {h.channel.name}: "
-                    messagestr += f"** '{h.content}'"
+                    content = clean_vote_message(h.content,h.author) # redact usernames from vote/nomination messages
+                    messagestr += f"** '{content}'"
                     await send_dm(user,messagestr)
         return "**end history**" if history else "no history"
     elif command[1] == "toprole":
@@ -145,12 +146,12 @@ async def get_channel_messages(user,params):
     return f'dumped chat log for {channel.name}'
 
 @officers_only
-def get_nonmembers(user):
+async def get_nonmembers(user):
     tosend = ''
     for member_id in client.non_members:
         member = discord.utils.get(client.guild.members,id=member_id)
         tosend += f'{member.nick or member.name} ({member.name}#{member.discriminator}), '
-    return tosend
+    return tosend.rstrip(' ,')
 
 async def alert_nonmembers():
     rules_channel_id = discord.utils.get(client.guild.channels,name='rules').id

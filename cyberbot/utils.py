@@ -18,7 +18,10 @@
 
 import discord
 import functools
+import re
 from .run import client
+
+discord_tag_regex = r"\w+#\d{4}"
 
 def officers_only(func):
     @functools.wraps(func)
@@ -64,3 +67,27 @@ def parse_username_and_friend(toparse):
 
 def diff_lists(a, b):
     return (list(list(set(a)-set(b)) + list(set(b)-set(a))))
+
+def clean_vote_message(content,author):
+    if author == client.user: # from bot:
+        content = re.sub(discord_tag_regex,"[REDACTED]",content)
+        if "cast for" in content:
+            content = content.split("cast for")[0] + "cast for [REDACTED]!"
+        elif "does not meet the qualifications" in content:
+            content = "[REDACTED] does not meet the qualifications" + content.split("does not meet the qualifications")[1]
+        elif "Cancelled nomination for" in content:
+            content = "Cancelled nomination for [REDACTED], you still have 1 nomination to use on someone else."
+        elif "Seconded nomination of" in content:
+            content = "Seconded nomination of [REDACTED] for position" + content.split("for position")[1]
+        elif "has already accepted" in content:
+            content = "[REDACTED] has already accepted" + content.split('has already accepted')[1]
+        elif "**rejected** your nomination" in content:
+            content = "[REDACTED] **rejected** your nomination" + content.split('**rejected** your nomination')[1]
+        elif "has **accepted**" in content:
+            content = "[REDACTED] has **accepted**" + content.split('has **accepted**')[1]
+        elif "[REDACTED]" not in content and "was not found" in content:
+            content = "[REDACTED] was not found" + content.split('was not found')[1]
+    else: # from user
+        if "!vote" in content or "!nominate" in content:
+            content = re.sub(discord_tag_regex,"[REDACTED]",content)
+    return content
