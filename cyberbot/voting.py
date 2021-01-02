@@ -21,6 +21,7 @@ import discord
 from dataclasses import dataclass, field
 from typing import List
 from .run import client
+from .voice import members_in_voice_channel
 from .utils import diff_lists, send_dm, parse_username_and_friend
 
 @dataclass
@@ -235,8 +236,14 @@ class Voting:
             return "The nomination period has already started.\nTo restart, run:\n\t`!nomination stop clear`\nthen,\n\t`!nomination start`"
         self.positions_to_elect.extend([pos.lower() for pos in pieces])
         await self.__populate_messages()
-        self.nomination_started = True
         self.eligible_members = self.__get_eligible_members()
+        if not self.eligible_members:
+            # no one is eligible, cannot do nominations
+            self.positions_to_elect.clear()
+            self.messages.clear()
+            self.eligible_members.clear()
+            return "No members are eligible for positions at the moment. Make sure those who plan on running are in attendance."
+        self.nomination_started = True
         return self.__get_nomination_start_string()
 
 
@@ -297,9 +304,14 @@ class Voting:
         return "Election has ended.\n" + results
 
     
-    def __get_eligible_members(self):
+    def __get_eligible_members(self,election_channel="meetings"):
         eligible = []
+        voice_channel = discord.utils.get(client.guild.channels,name=election_channel)
+        if voice_channel:
+            participants = members_in_voice_channel(voice_channel)
         for member in client.guild.members:
+            if voice_channel and member not in participants:
+                continue
             if self.__is_member_eligible(member):
                 eligible.append(member)
         return eligible
@@ -318,8 +330,8 @@ class Voting:
         return results
 
 
-    def __is_member_eligible(self,nominee,msg_count=4, semester_length=16):
-        now = arrow.utcnow()
+    def __is_member_eligible(self,nominee,msg_count=6, semester_length=16):
+        now = arrow.get('2020-12-12T20:15:00.859374+00:00')# last day of semester #arrow.utcnow() 
         # semester_length in weeks
         # must be a member for at least 1 semester
         if nominee.joined_at:
@@ -328,13 +340,13 @@ class Voting:
                 return False
         # must be presently enrolled at university
         nom_roles = [role.name for role in nominee.roles]
-        if "Alum" in nom_roles or "Member" not in nom_roles:
+        if "Alum" in nom_roles or "Member" not in nom_roles or "Officers" in nom_roles:
             return False
         # user should have sent a certain number of messages in the past semester
         # checks if half of the messages were sent in the first half of the semester and half in the last
         nom_msgs = [x for x in self.messages if (x.author.id == nominee.id) and ((now - arrow.get(x.created_at)).days < semester_length * 7)]
         first_half_msgs  = [x for x in nom_msgs if (arrow.get(x.created_at)) < now.shift(weeks=-semester_length/2)]
-        if (len(first_half_msgs) < msg_count/2) or (len(diff_lists(nom_msgs,first_half_msgs)) < msg_count/2):
+        if (len(first_half_msgs) < msg_count//2) or (len(diff_lists(nom_msgs,first_half_msgs)) < (msg_count - (msg_count//2))):
             return False
         return True
 

@@ -35,6 +35,8 @@ async def handle_rule_accept_channel(message,role_name):
 
 @officers_only
 async def handle_election_channel(message):
+    if message.guild != client.guild: # security
+        return
     slices = message.content.lower().split(' ',1)
     if slices[0] == "!get":
         if len(slices) > 1:
@@ -56,7 +58,7 @@ async def handle_election_channel(message):
                 ret = await client.election.start_nomination(split_slices[1].split(' ') if len(split_slices) > 1 else None)
                 # end election instance if nomination start was executed incorrectly
                 await message.channel.send(ret)
-                if "Please specify" in ret:
+                if "Please specify" in ret or "No members" in ret:
                     client.end_election_instance()
             elif split_slices[0] == "stop":
                 await message.channel.send(client.election.stop_nomination(split_slices[1] if len(split_slices) > 1 else None) if client.election else ret)
