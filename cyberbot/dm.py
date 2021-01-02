@@ -20,6 +20,7 @@ import arrow
 import discord
 import os
 from .run import client
+from .voice import is_member_in_voice_channel
 from .utils import make_file, officers_only, send_dm, parse_username_and_friend
 
 async def handle_dm(user, msg=None):
@@ -34,6 +35,8 @@ async def handle_dm(user, msg=None):
             return tosend
         if pieces[0] == "!nominate":
             if client.election and client.election.nomination_started:
+                if not is_member_in_voice_channel(user,"meetings"): # must be present to vote/nominate
+                    return
                 if user.id in client.election.users_waiting_for_nom:
                     return # make sure a user waiting for a response cannot nominate someone during the wait
                 if pieces[1] in ('accept', 'reject','cancel','second'):
@@ -41,6 +44,8 @@ async def handle_dm(user, msg=None):
                 tosend = await client.election.handle_nominate(user,pieces[1]) or tosend
         elif pieces[0] == "!vote":
             if client.election and client.election.election_started:
+                if not is_member_in_voice_channel(user,"meetings"):
+                    return
                 tosend = client.election.handle_vote(user,pieces[1]) or tosend
         elif pieces[0] == "!stats":
             tosend = await member_stats(user,pieces[1] if len(pieces) > 1 else "") or tosend
