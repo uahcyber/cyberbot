@@ -21,7 +21,8 @@ import functools
 import re
 from .run import client
 
-discord_tag_regex = r"\w+#\d{4}"
+discord_tag_regex = re.compile(r"\w+#\d{4}")
+flag_regex = re.compile(r"uah{.*}")
 
 def officers_only(func):
     @functools.wraps(func)
@@ -70,7 +71,7 @@ def diff_lists(a, b):
 
 def clean_vote_message(content,author):
     if author == client.user: # from bot:
-        content = re.sub(discord_tag_regex,"[REDACTED]",content)
+        content = discord_tag_regex.sub("[REDACTED]",content)
         if "cast for" in content:
             content = content.split("cast for")[0] + "cast for [REDACTED]!"
         elif "does not meet the qualifications" in content:
@@ -89,5 +90,5 @@ def clean_vote_message(content,author):
             content = "[REDACTED] was not found" + content.split('was not found')[1]
     else: # from user
         if "!vote" in content or "!nominate" in content:
-            content = re.sub(discord_tag_regex,"[REDACTED]",content)
+            content = discord_tag_regex.sub("[REDACTED]",content)
     return content

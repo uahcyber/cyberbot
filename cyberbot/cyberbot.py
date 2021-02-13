@@ -32,16 +32,26 @@ class CyberBot(discord.Client):
     election = None
     allowed_bots = ["CyberBot"]
     non_members = []
+    flags = []
     
 
-    def __init__(self,clubname="generic club",*args,**kwargs):
+    def __init__(self,clubname="generic club",flagfile=None,*args,**kwargs):
         intents = discord.Intents.default()
         intents.members = True # for seeing members of the server
         super(self.__class__,self).__init__(intents=intents,*args,**kwargs)
         self.guild_name = os.getenv('DISCORD_GUILD')
         self.token = os.getenv('DISCORD_TOKEN')
         self.clubname = clubname
-
+        if flagfile:
+            with open(flagfile,'r') as fp:
+                data = fp.read().strip().splitlines()
+            print("flags\n=====")
+            for n in data:
+                k,v = n.split(':')
+                self.flags.append({k.strip():v.strip()})
+                print(f"{k.strip()}: {v.strip()}")
+            print("=====")
+                
 
     async def on_ready(self):
         self.guild = discord.utils.find(lambda g: g.name == self.guild_name, self.guilds)

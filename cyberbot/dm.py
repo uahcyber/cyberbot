@@ -21,7 +21,7 @@ import discord
 import os
 from .run import client
 from .voice import is_member_in_voice_channel
-from .utils import make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
+from .utils import flag_regex, make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
 
 async def handle_dm(user, msg=None):
     tosend = "beep beep boop boop, whatcha doin?"
@@ -53,6 +53,8 @@ async def handle_dm(user, msg=None):
             tosend = await get_channel_messages(user,pieces[1] if len(pieces) > 1 else "") or tosend
         elif pieces[0] == '!nonmembers':
             tosend = await get_nonmembers(user) or tosend
+        elif flag_regex.match(pieces[0]):
+            tosend = await flag_submission(pieces[0]) or tosend
     await send_dm(user,tosend)
 
 @officers_only
@@ -163,3 +165,11 @@ async def alert_nonmembers():
                             f" in <#{rules_channel_id}>, then visit the <#{accept_rules_id}>"
                             " channel and type `I accept` to get full access to the server.\nIf you"
                             " would like to leave the server, you may do so."))
+
+
+async def flag_submission(data):
+    tosend = "Invalid flag."
+    for flag in client.flags:
+        if data == list(flag.values())[0]:
+            tosend = f"Congrats! You got the {list(flag.keys())[0]} flag!"
+    return tosend
