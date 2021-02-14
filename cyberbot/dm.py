@@ -198,7 +198,7 @@ async def process_flag(user,msg):
             return "Incorrect usage.\n" + usage
         users = get_flag(topic=params,solvers=True)
         if not users:
-            return f"Flag with topic `{params}` does not exist."
+            return f"No data on flag topic `{params}`"
         res = f"Users who have solved the `{params}` flag:\n"
         res += '\n'.join([f"\t- <@{u}>" for u in users])
         return res
