@@ -19,6 +19,7 @@
 import arrow
 import discord
 import os
+from .flag import add_flag, add_solve, change_flag, delete_flag, check_flag, get_flag
 from .run import client
 from .voice import is_member_in_voice_channel
 from .utils import flag_regex, make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
@@ -53,8 +54,10 @@ async def handle_dm(user, msg=None):
             tosend = await get_channel_messages(user,pieces[1] if len(pieces) > 1 else "") or tosend
         elif pieces[0] == '!nonmembers':
             tosend = await get_nonmembers(user) or tosend
-        elif flag_regex.match(pieces[0]):
-            tosend = await flag_submission(pieces[0]) or tosend
+        elif pieces[0] == "!flag" and client.flagfile: # make sure flagfile set before doing anything with flags
+            tosend = await process_flag(user,pieces[1] if len(pieces) > 1 else None) or tosend
+        elif flag_regex.match(pieces[0]) and client.flagfile:
+            tosend = await flag_submission(user,pieces[0]) or tosend
     await send_dm(user,tosend)
 
 @officers_only
@@ -166,10 +169,60 @@ async def alert_nonmembers():
                             " channel and type `I accept` to get full access to the server.\nIf you"
                             " would like to leave the server, you may do so."))
 
+@officers_only
+async def process_flag(user,msg):
+    usage = ("usage: `!flag [command]`\nCommands:\n"
+            "\t- `change [topic] [content]`: change existing flag\n"
+            "\t- `create [topic] [content]`: create new flag\n"
+            "\t- `delete [topic]`: delete flag\n"
+            "\t- `list`: list existing flags\n"
+            "\t- `solved [topic]`: display users who have successfully submitted a flag\n"
+            "\nExamples:\n\t`create ssh_prob l00k_4t_m3_i_cAN_r3m07e_1n`\n\t`delete ssh_prob`\n\t`solved ssh_prob`")
+    if msg == None or msg == "help":
+        return usage
+    command, params = msg.split(' ',1) if msg.strip().count(' ') > 0 else (msg.split(' ',1)[0], "")
+    if command == "list":
+        flag_list = "flags:\n"
+        for flag in get_flag():
+            flag_list += f"\t- `{flag['topic']}`: `{flag['flag']}`\n"
+        return flag_list
+    elif command == "create":
+        toks = params.split(' ')
+        if len(toks) < 2:
+            return "Incorrect usage.\n" + usage
+        if not add_flag(toks[0],toks[1]):
+            return f"Flag with topic `{toks[0]}` already exists."
+        return f"Added flag `{toks[1]}` with topic of `{toks[0]}`."
+    elif command == "solved":
+        if params == "" or ' ' in params:
+            return "Incorrect usage.\n" + usage
+        users = get_flag(topic=params,solvers=True)
+        if not users:
+            return f"Flag with topic `{params}` does not exist."
+        res = f"Users who have solved the `{params}` flag:\n"
+        res += '\n'.join([f"\t- <@{u}>" for u in users])
+        return res
+    elif command == "delete":
+        if not params:
+            return "Incorrect usage.\n" + usage
+        delete_flag(params)
+        return f"Deleted flag with topic `{params}`"
+    elif command == "change":
+        toks = params.split(' ')
+        if len(toks) < 2:
+            return "Incorrect usage.\n" + usage
+        change_flag(toks[0],toks[1])
+        return f"Changed flag with topic of `{toks[0]}` to `{toks[1]}`."
+    else:
+        return usage
 
-async def flag_submission(data):
+
+async def flag_submission(user,data):
     tosend = "Invalid flag."
-    for flag in client.flags:
-        if data == list(flag.values())[0]:
-            tosend = f"Congrats! You got the {list(flag.keys())[0]} flag!"
+    topic = check_flag(data)
+    if check_flag(data):
+        if not add_solve(topic,user):
+            tosend = f"You have already submitted the correct flag for {topic}."
+        else:
+            tosend = f"Congrats! You got the {topic} flag!"
     return tosend

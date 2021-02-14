@@ -22,6 +22,7 @@ import sys
 flagfile = None
 if len(sys.argv) > 1:
     flagfile = sys.argv[1]
+
 client = CyberBot(clubname="UAH Cybersecurity Club",flagfile=flagfile)
 
 def main():

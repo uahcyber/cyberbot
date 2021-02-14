@@ -17,6 +17,7 @@ Features
     * Nominated member can accept or reject the nomination
     * No double voting for a specific nominee or position
   * Kick new bot users unless specifically allowed
+  * Internal Capture The Flag (CTF)
 
 Setup
 -----
@@ -43,4 +44,4 @@ Running
 
 In a terminal, run:
 
-`$ cyberbot`
+`$ cyberbot [optional file location for storing CTF data]`

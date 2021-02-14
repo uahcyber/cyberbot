@@ -33,6 +33,7 @@ class CyberBot(discord.Client):
     allowed_bots = ["CyberBot"]
     non_members = []
     flags = []
+    flagfile = None
     
 
     def __init__(self,clubname="generic club",flagfile=None,*args,**kwargs):
@@ -42,18 +43,11 @@ class CyberBot(discord.Client):
         self.guild_name = os.getenv('DISCORD_GUILD')
         self.token = os.getenv('DISCORD_TOKEN')
         self.clubname = clubname
-        if flagfile:
-            with open(flagfile,'r') as fp:
-                data = fp.read().strip().splitlines()
-            print("flags\n=====")
-            for n in data:
-                k,v = n.split(':')
-                self.flags.append({k.strip():v.strip()})
-                print(f"{k.strip()}: {v.strip()}")
-            print("=====")
-                
+        self.flagfile = flagfile
 
     async def on_ready(self):
+        from .flag import load_flags
+        load_flags()
         self.guild = discord.utils.find(lambda g: g.name == self.guild_name, self.guilds)
         print(f'{self.user} is connected to the following guild:\n'f'{self.guild.name}(id: {self.guild.id})')
         print(f'Server has {len(self.guild.members)} members.')
