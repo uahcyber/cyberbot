@@ -18,10 +18,10 @@
 
 import discord
 from .run import client
-from .utils import officers_only
+from .utils import officers_only, send_dm
 
 
-async def handle_rule_accept_channel(message,role_name):
+async def handle_rule_accept_channel(message,role_name,intro_channel="introductions"):
     if ((message.content.rstrip().upper() == "I ACCEPT") or 
         (message.content.rstrip().upper() == "I ACCEPT.") or 
         (message.content.rstrip().upper() == "I ACCEPT!")):
@@ -32,6 +32,12 @@ async def handle_rule_accept_channel(message,role_name):
             await message.author.add_roles(role)
             client.non_members.remove(message.author.id)
             print(f"Added {message.author.name} to role {role}")
+            intro = discord.utils.get(client.guild.channels,name=intro_channel)
+            if not intro:
+                print(f"Could not find channel {intro_channel}")
+            await send_dm(message.author,(f"Welcome to the {client.clubname} server!\n"
+                                        f"Now that you're here, feel free to send a message in our <#{intro.id}> channel introducing yourself to the club!\n"
+                                        "Feel free to post links to articles, tools, or just talk and hang out!"))
 
 @officers_only
 async def handle_election_channel(message):
