@@ -73,6 +73,12 @@ class CyberBot(discord.Client):
         elif message.channel.name == "elections":
             await handle_election_channel(message)
 
+    async def on_message_edit(self,before,after):
+        from .channels import handle_rule_accept_channel
+        if after.author == self.user:
+            return
+        if after.channel.name == "accept-rules-here":
+            await handle_rule_accept_channel(after,'Member')
 
     async def on_member_join(self, member):
         # prevent other bots from being invited in
