@@ -54,10 +54,12 @@ async def handle_dm(user, msg=None):
             tosend = await get_channel_messages(user,pieces[1] if len(pieces) > 1 else "") or tosend
         elif pieces[0] == '!nonmembers':
             tosend = await get_nonmembers(user) or tosend
-        elif pieces[0] == "!flag" and client.flagfile: # make sure flagfile set before doing anything with flags
+        elif pieces[0] == "!flag" and client.datafile: # make sure datafile set before doing anything with flags
             tosend = await process_flag(user,pieces[1] if len(pieces) > 1 else None) or tosend
-        elif flag_regex.match(pieces[0]) and client.flagfile:
+        elif flag_regex.match(pieces[0]) and client.datafile:
             tosend = await flag_submission(user,pieces[0]) or tosend
+        elif pieces[0] == "!watch":
+            tosend = await set_react_id(user,pieces[1]) or tosend
     await send_dm(user,tosend)
 
 @officers_only
@@ -226,3 +228,12 @@ async def flag_submission(user,data):
         else:
             tosend = f"Congrats! You got the {topic} flag!"
     return tosend
+
+@officers_only
+async def set_react_id(user,data):
+    if not client.datafile:
+        return f"Please set a session data file when running the bot to add to watchlist."
+    message_id, emote, action, data = data.split(' ',3)
+    watch_dict = {"id": int(message_id), "emote": emote, "action": action, "data": data}
+    client.update_session('react_watch_list',watch_dict,append=True)
+    return f"added the following to the react watchlist:\n`{str(watch_dict)}`"

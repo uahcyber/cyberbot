@@ -17,14 +17,12 @@
 #
 
 import discord
-import pickle
-import os.path
 from .run import client
 from .utils import flag_regex
 
 def get_flag(topic=None,index=False,solvers=False,all_data=False):
     if topic:
-        for i,flag in enumerate(client.flags):
+        for i,flag in enumerate(client.session_data.flags):
             if topic == flag["topic"]:
                 if all_data:
                     return (i, flag["flag"], flag["solvers"])
@@ -37,27 +35,18 @@ def get_flag(topic=None,index=False,solvers=False,all_data=False):
                 else:
                     return flag["flag"]
         return None
-    return client.flags
-
-def load_flags():
-    if not os.path.isfile(client.flagfile):
-        return # file will be created later with pickle.dump()
-    with open(client.flagfile,'rb') as fp:
-        data = pickle.load(fp)
-    client.flags = data
+    return client.session_data.flags
 
 def add_flag(topic,flag):
     flag_str = f"uah{{{flag.strip()}}}" if not flag_regex.match(flag) else flag
-    topics = [f["topic"] for f in client.flags]
+    topics = [f["topic"] for f in client.session_data.flags]
     if topic in topics: # no duplicate topics
         return False
-    client.flags.append({"topic": topic.strip(), "flag": flag_str, "solvers": []})
-    with open(client.flagfile,'wb') as fp:
-        pickle.dump(client.flags,fp)
+    client.update_session('flags', {"topic": topic.strip(), "flag": flag_str, "solvers": []}, append=True)
     return True
 
 def check_flag(data):
-    for flag in client.flags:
+    for flag in client.session_data.flags:
         if data == flag["flag"]:
             return flag["topic"]
     return None
@@ -66,17 +55,14 @@ def add_solve(topic,user):
     index, solvers = get_flag(topic=topic,index=True,solvers=True)
     if user.id in solvers:
         return False
-    client.flags[index]["solvers"].append(user.id)
-    with open(client.flagfile,'wb') as fp: # commit changes
-        pickle.dump(client.flags,fp)
+    client.session_data.flags[index]["solvers"].append(user.id)
+    client.update_session('flags')
     return True
 
 def change_flag(topic,new_flag):
-    client.flags[get_flag(topic=topic,index=True)]["flag"] = new_flag
-    with open(client.flagfile,'wb') as fp:
-        pickle.dump(client.flags,fp)
+    client.session_data.flags[get_flag(topic=topic,index=True)]["flag"] = new_flag
+    client.update_session('flags')
 
 def delete_flag(topic):
-    del client.flags[get_flag(topic=topic,index=True)]
-    with open(client.flagfile,'wb') as fp:
-        pickle.dump(client.flags,fp)
+    del client.session_data.flags[get_flag(topic=topic,index=True)]
+    client.update_session('flags')

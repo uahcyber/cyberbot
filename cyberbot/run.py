@@ -19,11 +19,11 @@
 from .cyberbot import CyberBot
 import sys
 
-flagfile = None
+datafile = None
 if len(sys.argv) > 1:
-    flagfile = sys.argv[1]
+    datafile = sys.argv[1]
 
-client = CyberBot(clubname="UAH Cybersecurity Club",flagfile=flagfile)
+client = CyberBot(clubname="UAH Cybersecurity Club", datafile=datafile)
 
 def main():
     client.run()

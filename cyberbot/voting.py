@@ -178,9 +178,9 @@ class Voting:
             if user.id in nom.by:
                 return "You have already nominated someone for a position."
             if nom.user == nominee:
+                self.users_waiting_for_nom.append(user.id)
+                await send_dm(user, f"{nominee.name} has already accepted the nomination for **{nom.position}**. To second this nomination, please reply with:\n`!nominate second`\nOtherwise, reply with:\n`!nominate cancel`")
                 while True:
-                    self.users_waiting_for_nom.append(user.id)
-                    await send_dm(user, f"{nominee.name} has already accepted the nomination for **{nom.position}**. To second this nomination, please reply with:\n`!nominate second`\nOtherwise, reply with:\n`!nominate cancel`")
                     msg = await client.wait_for('message')
                     if not isinstance(msg.channel, discord.DMChannel):
                         continue

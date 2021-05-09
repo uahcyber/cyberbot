@@ -20,34 +20,43 @@ import os
 import discord
 from discord.ext import tasks
 import arrow
+from dataclasses import dataclass, field
+from typing import List
+import pickle
 
 #
 # you need to set the following values in your bash environment variables:
 #   DISCORD_TOKEN, DISCORD_GUILD
 #
 
+@dataclass
+class Session:
+    flags: List[dict] = field(default_factory=list)
+    react_watch_list: List[dict] = field(default_factory=list)
+
+
 class CyberBot(discord.Client):
 
     guild = None
     election = None
     allowed_bots = ["CyberBot"]
+    session_data = Session()
+    datafile = None
     non_members = []
-    flags = []
-    flagfile = None
-    
 
-    def __init__(self,clubname="generic club",flagfile=None,*args,**kwargs):
+
+    def __init__(self,clubname="generic club",datafile=None,*args,**kwargs):
         intents = discord.Intents.default()
         intents.members = True # for seeing members of the server
-        super(self.__class__,self).__init__(intents=intents,*args,**kwargs)
         self.guild_name = os.getenv('DISCORD_GUILD')
         self.token = os.getenv('DISCORD_TOKEN')
+        super(self.__class__,self).__init__(intents=intents,*args,**kwargs)
         self.clubname = clubname
-        self.flagfile = flagfile
+        self.datafile = datafile
+
 
     async def on_ready(self):
-        from .flag import load_flags
-        load_flags()
+        self.load_session()
         self.guild = discord.utils.find(lambda g: g.name == self.guild_name, self.guilds)
         print(f'{self.user} is connected to the following guild:\n'f'{self.guild.name}(id: {self.guild.id})')
         print(f'Server has {len(self.guild.members)} members.')
@@ -73,12 +82,28 @@ class CyberBot(discord.Client):
         elif message.channel.name == "elections":
             await handle_election_channel(message)
 
+
     async def on_message_edit(self,before,after):
         from .channels import handle_rule_accept_channel
         if after.author == self.user:
             return
         if after.channel.name == "accept-rules-here":
             await handle_rule_accept_channel(after,'Member')
+
+
+    async def on_raw_reaction_add(self,payload):
+        for item in self.session_data.react_watch_list:
+            if item['id'] == payload.message_id and payload.emoji.name == item['emote']:
+                from .reactions import handle_reaction
+                await handle_reaction(payload,item)
+
+
+    async def on_raw_reaction_remove(self,payload):
+        for item in self.session_data.react_watch_list:
+            if item['id'] == payload.message_id and payload.emoji.name == item['emote']:
+                from .reactions import handle_reaction
+                await handle_reaction(payload,item,inverse=True)
+
 
     async def on_member_join(self, member):
         # prevent other bots from being invited in
@@ -117,6 +142,31 @@ class CyberBot(discord.Client):
         if current_time == 'Sat-12:00':
             from .dm import alert_nonmembers
             await alert_nonmembers()
+
+
+    def load_session(self):
+        if not (self.datafile and os.path.isfile(self.datafile)):
+            return # file will be created later with pickle.dump()
+        with open(self.datafile,'rb') as fp:
+            data = pickle.load(fp)
+        self.session_data = data
+        print(f'loaded session data: {str(self.session_data)}')
+
+
+    def update_session(self, item, data=None, append=False):
+        try:
+            sess_item = getattr(self.session_data,item)
+        except(AttributeError):
+            print(f"[!] Failed to update {item} in session data.")
+            return
+        if data == None and not append: # handle normal file update
+            data = sess_item
+        if append:
+            sess_item.append(data)
+        else:
+            sess_item = data
+        with open(self.datafile,'wb') as fp:
+            pickle.dump(self.session_data,fp)
 
 
     def run(self,*args,**kwargs):
