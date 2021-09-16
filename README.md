@@ -7,6 +7,7 @@ Features
 --------
 
   * Assign membership on rule accepts
+  * Assign verified role on email verification
   * Remind non-members to accept rules weekly
   * Officer commands
     * dump channel logs
@@ -32,11 +33,22 @@ You must set the following environment variables:
 
 `DISCORD_GUILD` - the name of the Discord Server to which the bot will be deployed
 
+And these if using email verification:
+
+`DISCORD_GMAIL` - the gmail account used to send verification emails
+
+`DISCORD_GMAIL_PASSWORD` - the password for the gmail account
+
+`DISCORD_EMAIL_ORGANIZATION` - the required email domain to verify
+
 Examples:
 
 ```bash
 DISCORD_TOKEN="j64f3UePWeSWRzSYIu.P00j6y.tzDTMObXakj9Kqof"
 DISCORD_GUILD="My Server Name"
+DISCORD_GMAIL="companydiscordverification@gmail.com"
+DISCORD_GMAIL_PASSWORD="password"
+DISCORD_EMAIL_ORGANIZATION="company.org"
 ```
 
 You can optionally set the club name by passing the `clubname` parameter to `CyberBot()` in [cyberbot/run.py](cyberbot/run.py#L21).
