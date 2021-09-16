@@ -27,6 +27,8 @@ import pickle
 #
 # you need to set the following values in your bash environment variables:
 #   DISCORD_TOKEN, DISCORD_GUILD
+# and these if using email verification
+#   DISCORD_GMAIL, DISCORD_GMAIL_PASSWORD, DISCORD_EMAIL_ORGANIZATION
 #
 
 @dataclass
@@ -72,6 +74,7 @@ class CyberBot(discord.Client):
     async def on_message(self, message):
         from .channels import handle_election_channel, handle_rule_accept_channel
         from .dm import handle_dm
+        from .verification import handle_verification_channel
         if message.author == self.user:
             return
         if isinstance(message.channel, discord.DMChannel):
@@ -81,6 +84,8 @@ class CyberBot(discord.Client):
             await handle_rule_accept_channel(message,'Member')
         elif message.channel.name == "elections":
             await handle_election_channel(message)
+        elif message.channel.name == "verification":
+            await handle_verification_channel(message)
 
 
     async def on_message_edit(self,before,after):
