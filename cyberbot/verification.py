@@ -70,6 +70,7 @@ async def send_code(email):
     text = f"""\
     Verification code command:
     !verify {code}
+    Send the above command in a direct message to the CyberBot.
     You received this message because someone tried to verify their identity with this email address.
     If this was not you, ignore this message.
 
