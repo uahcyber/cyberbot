@@ -63,8 +63,8 @@ class CyberBot(discord.Client):
 
 
     async def on_ready(self):
-        self.load_session()
         self.guild = discord.utils.find(lambda g: g.name == self.guild_name, self.guilds)
+        self.load_session()
         print(f'{self.user} is connected to the following guild:\n'f'{self.guild.name}(id: {self.guild.id})')
         print(f'Server has {len(self.guild.members)} members.')
         # populate non-members list
@@ -89,8 +89,6 @@ class CyberBot(discord.Client):
             await handle_rule_accept_channel(message,'Member')
         elif message.channel.name == "elections":
             await handle_election_channel(message)
-        #elif message.channel.name == "verification" and self.verification_enabled:
-        #    await handle_verification_channel(message)
 
 
     async def on_message_edit(self,before,after):

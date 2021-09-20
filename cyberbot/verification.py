@@ -32,7 +32,14 @@ blocked_emails = [
     ]
 
 async def handle_verification(message):
-    email = message.content.strip().split(' ',1)[1]
+    if message.author.id in [x["id"] for x in client.session_data.verified_users]:
+        await message.reply("You are already verified. Congrats!")
+        return
+    split_msg = message.content.strip().split(' ',1)
+    if len(split_msg) != 2:
+        await message.reply("Invalid command.")
+        return
+    email = split_msg[1]
     if email in blocked_emails:
         await message.reply("Invalid email.")
         return
@@ -61,8 +68,8 @@ async def send_code(email):
 
     # Creates html message and text version for if html isn't supported
     text = f"""\
-    Verification code:
-    {code}
+    Verification code command:
+    !verify {code}
     You received this message because someone tried to verify their identity with this email address.
     If this was not you, ignore this message.
 
@@ -71,8 +78,9 @@ async def send_code(email):
     html = f"""\
     <html>
       <body>
-        <p><strong>Verification code:</strong><br /><br />
-        <strong><code style="border: solid; background-color: #00bbaa; color: white; border-color: black; margin: 5px; padding: 5px 10px 5px 10px;font-size:2em;">{code}</code></strong><br /><br />
+        <p><strong>Verification code command:</strong><br /><br />
+        <strong><code style="border: solid; background-color: #00bbaa; color: white; border-color: black; margin: 5px; padding: 5px 10px 5px 10px;font-size:2em;">!verify {code}</code></strong><br /><br />
+        Send the above command in a direct message to the CyberBot.<br />
         You received this message because someone tried to verify their identity with this email address.<br />
         If this was not you, ignore this message.<br /><br />Code is valid for 15 minutes.</p>
       </body>
@@ -92,8 +100,8 @@ async def send_code(email):
             sender_email, receiver_email, message.as_string()
         )
     # code expires in 15 minutes
-    client.pending_verifies[email.author] = {"code": code, "expiration": expire, "email": receiver_email} 
-    print(f"User {email.author} sent verification code {code} to {email.content}")
+    client.pending_verifies[email.author] = {"code": code, "expiration": expire, "email": receiver_email, "attempts": 0}
+    print(f"User {email.author} sent verification code {code} to {receiver_email}")
 
 
 # Check if a code is valid
@@ -102,17 +110,80 @@ async def check_code(message):
     code = message.content.strip().split(' ',1)[1]
     is_expired = client.pending_verifies[message.author]["expiration"] < time.time()
     reply_msg = "Invalid code."
+    if client.pending_verifies[message.author]["attempts"] > 10: # allow 10 attempts
+        await message.reply("Too many verification attempts detected. Please contact an Officer to help you out.")
+        return
+    client.pending_verifies[message.author]["attempts"] += 1
     if str(client.pending_verifies[message.author]["code"]) == code:
         if not is_expired:
             await server_user.add_roles(discord.utils.get(client.guild.roles, name="Verified Student"))
             reply_msg = "You have been successfully verified."
             client.update_session('verified_users',{"id": server_user.id, "email": client.pending_verifies[message.author]["email"]},append=True)
+            print(f"Successfully verified {server_user} as {client.pending_verifies[message.author]['email']}.")
         del client.pending_verifies[message.author]
     await message.reply(reply_msg)
 
-@officers_only
-async def get_verified_users(user):
+def get_verified_users():
+    if len(client.session_data.verified_users) == 0:
+        return "no verified users"
     tosend = "Verified users:\n\n"
     for u in client.session_data.verified_users:
         tosend += f"  • <@{u['id']}>: {u['email']}\n"
+    return tosend
+
+def get_pending_verifications():
+    if len(client.pending_verifies) == 0:
+        return "no pending verifications"
+    tosend = "Pending verifications:\n\n"
+    for author,data in client.pending_verifies.items():
+        tosend += f"  • <@{author.id}>: {data['email']} with code `{data['code']}` ({data['attempts']}/10 attempts)"
+    return tosend
+
+def get_verification_index_of_user(user):
+    for i, data in enumerate(client.session_data.verified_users):
+        if data["id"] == user.id:
+            return i
+    return -1
+
+def remove_pending(username):
+    user = discord.utils.get(client.guild.members, name=username.split('#')[0], discriminator=username.split('#')[1])
+    del client.pending_verifies[user]
+
+async def remove_verification(username):
+    user = discord.utils.get(client.guild.members, name=username.split('#')[0], discriminator=username.split('#')[1])
+    verification_idx = get_verification_index_of_user(user)
+    if verification_idx == -1:
+        return False
+    del client.session_data.verified_users[verification_idx]
+    client.update_session('verified_users')
+    await user.remove_roles(discord.utils.get(client.guild.roles, name="Verified Student"))
+    return True
+
+@officers_only
+async def verifications(user, msg):
+    pieces = msg.split(" ")
+    tosend = "Invalid input."
+    if pieces[0] == "getVerified":
+        tosend = get_verified_users()
+    elif pieces[0] == "getPending":
+        tosend = get_pending_verifications()
+    elif pieces[0] == "rmPending" and len(pieces) == 2:
+        if "#" not in pieces[1]:
+            return tosend
+        remove_pending(pieces[1])
+        tosend = f"Removed {pieces[1]} from pending verifications."
+    elif pieces[0] == "rmVerification": # revoke a verification
+        if "#" not in pieces[1]:
+            return tosend
+        removed = await remove_verification(pieces[1])
+        if not removed:
+            tosend = f"Failed to remove verification for {pieces[1]}"
+        else:
+            tosend = f"Successfully removed verification status for {pieces[1]}"
+    elif pieces[0] == "help":
+        tosend = ( "usage: `!verifications [action] [OPTIONS]`\nActions:\n"
+            "\t- `getVerified`: display a list of all verified users\n"
+            "\t- `getPending`: display a list of all pending verifications\n"
+            "\t- `rmPending [user#discriminator]`: delete a pending verification\n"
+            "\t- `rmVerification [user#discriminator]`: remove a user's verification status\n")
     return tosend

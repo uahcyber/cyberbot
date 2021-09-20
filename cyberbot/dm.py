@@ -23,11 +23,12 @@ from .flag import add_flag, add_solve, change_flag, delete_flag, check_flag, get
 from .run import client
 from .voice import is_member_in_voice_channel
 from .utils import flag_regex, make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
-from .verification import handle_verification, get_verified_users
+from .verification import handle_verification, verifications
 
 async def handle_dm(user, msg=None):
     tosend = "beep beep boop boop, whatcha doin?"
     pieces = msg.content.rstrip().split(' ',1)
+    early_exit = False
     async with msg.channel.typing():
         # check that user is a member of the current guild
         user = discord.utils.get(client.guild.members,name=user.name, discriminator=user.discriminator)
@@ -64,9 +65,11 @@ async def handle_dm(user, msg=None):
             tosend = await set_react_id(user,pieces[1]) or tosend
         elif pieces[0] == "!verify" and client.verification_enabled:
             await handle_verification(msg)
-            return
-        elif pieces[0] == "!getverified":
-            tosend = await get_verified_users(user) or tosend
+            early_exit = True
+        elif pieces[0] == "!verification":
+            tosend = await verifications(user,pieces[1]) or tosend
+    if early_exit:
+        return
     await send_dm(user,tosend)
 
 @officers_only
