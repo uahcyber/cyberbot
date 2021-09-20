@@ -46,7 +46,7 @@ async def handle_verification(message):
     if message.author in client.pending_verifies:
         await check_code(message)
         return
-    if email[len(client.organization)+1:] == client.organization and " " not in email:
+    if email[-len(client.organization):] == client.organization and " " not in email:
         await send_code(message)
         await message.reply(f"Sent verification code to {email}")
     else:
