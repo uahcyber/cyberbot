@@ -23,7 +23,7 @@ datafile = None
 if len(sys.argv) > 1:
     datafile = sys.argv[1]
 
-client = CyberBot(clubname="UAH Cybersecurity Club", datafile=datafile)
+client = CyberBot(clubname="UAH Cybersecurity Club", datafile=datafile, org="uah.edu")
 
 def main():
     client.run()

@@ -28,14 +28,14 @@ import pickle
 # you need to set the following values in your bash environment variables:
 #   DISCORD_TOKEN, DISCORD_GUILD
 # and these if using email verification
-#   DISCORD_GMAIL, DISCORD_GMAIL_PASSWORD, DISCORD_EMAIL_ORGANIZATION
+#   DISCORD_GMAIL, DISCORD_GMAIL_PASSWORD
 #
 
 @dataclass
 class Session:
     flags: List[dict] = field(default_factory=list)
     react_watch_list: List[dict] = field(default_factory=list)
-
+    verified_users: List[dict] = field(default_factory=list)
 
 class CyberBot(discord.Client):
 
@@ -45,9 +45,12 @@ class CyberBot(discord.Client):
     session_data = Session()
     datafile = None
     non_members = []
+    # verification stuff
+    verification_enabled = True
+    organization = None
+    pending_verifies = {}
 
-
-    def __init__(self,clubname="generic club",datafile=None,*args,**kwargs):
+    def __init__(self,clubname="generic club",datafile=None,verification_enabled=True,org="example.com",*args,**kwargs):
         intents = discord.Intents.default()
         intents.members = True # for seeing members of the server
         self.guild_name = os.getenv('DISCORD_GUILD')
@@ -55,6 +58,8 @@ class CyberBot(discord.Client):
         super(self.__class__,self).__init__(intents=intents,*args,**kwargs)
         self.clubname = clubname
         self.datafile = datafile
+        self.verification_enabled = verification_enabled
+        self.organization = org
 
 
     async def on_ready(self):
@@ -74,18 +79,18 @@ class CyberBot(discord.Client):
     async def on_message(self, message):
         from .channels import handle_election_channel, handle_rule_accept_channel
         from .dm import handle_dm
-        from .verification import handle_verification_channel
+        #from .verification import handle_verification_channel
         if message.author == self.user:
             return
         if isinstance(message.channel, discord.DMChannel):
-            await handle_dm(user=message.author,msg=message.content)
+            await handle_dm(user=message.author,msg=message)
             return
         if message.channel.name == "accept-rules-here":
             await handle_rule_accept_channel(message,'Member')
         elif message.channel.name == "elections":
             await handle_election_channel(message)
-        elif message.channel.name == "verification":
-            await handle_verification_channel(message)
+        #elif message.channel.name == "verification" and self.verification_enabled:
+        #    await handle_verification_channel(message)
 
 
     async def on_message_edit(self,before,after):
@@ -159,6 +164,8 @@ class CyberBot(discord.Client):
 
 
     def update_session(self, item, data=None, append=False):
+        if not self.datafile: # no need to update a session if there is no session to update
+            return
         try:
             sess_item = getattr(self.session_data,item)
         except(AttributeError):

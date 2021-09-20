@@ -21,34 +21,41 @@ import discord
 from .run import client
 import smtplib
 import ssl
+import time
+from .utils import officers_only
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from random import randint
 
-sender_email = os.getenv("DISCORD_GMAIL")
-sender_password = os.getenv("DISCORD_GMAIL_PASSWORD")
-organization = os.getenv("DISCORD_EMAIL_ORGANIZATION")
-pending_verifies = {}
+blocked_emails = [
+    'uahcybersec@uah.edu',
+    ]
 
-
-async def handle_verification_channel(message):
-    if "@" in message.content:
-        if organization in message.content.lower():
-            await send_code(message)
-            await message.reply(f"Sent verification code to {message.content}")
-        else:
-            await message.reply("Your email must contain uah.edu")
-    else:
+async def handle_verification(message):
+    email = message.content.strip().split(' ',1)[1]
+    if email in blocked_emails:
+        await message.reply("Invalid email.")
+        return
+    if message.author in client.pending_verifies:
         await check_code(message)
+        return
+    if email[len(client.organization)+1:] == client.organization and " " not in email:
+        await send_code(message)
+        await message.reply(f"Sent verification code to {email}")
+    else:
+        await message.reply(f"Your email must me associated with {client.organization}")
 
 
 # send a verification code to the email the user entered
 async def send_code(email):
-    code = randint(100000, 999999)
+    sender_email = os.getenv("DISCORD_GMAIL")
+    sender_password = os.getenv("DISCORD_GMAIL_PASSWORD")
 
-    receiver_email = email.content
+    code = str(randint(0, 999999)).zfill(6)
+    expire = time.time() + 60*15
+    receiver_email = email.content.strip().split(' ',1)[1]
     message = MIMEMultipart("alternative")
-    message["Subject"] = f"{client.clubname} discord verification"
+    message["Subject"] = f"{client.clubname} Discord Verification"
     message["From"] = sender_email
     message["To"] = receiver_email
 
@@ -58,6 +65,8 @@ async def send_code(email):
     {code}
     You received this message because someone tried to verify their identity with this email address.
     If this was not you, ignore this message.
+
+    Code is valid for 15 minutes.
     """
     html = f"""\
     <html>
@@ -65,7 +74,7 @@ async def send_code(email):
         <p><strong>Verification code:</strong><br /><br />
         <strong><code style="border: solid; background-color: #00bbaa; color: white; border-color: black; margin: 5px; padding: 5px 10px 5px 10px;font-size:2em;">{code}</code></strong><br /><br />
         You received this message because someone tried to verify their identity with this email address.<br />
-        If this was not you, ignore this message.</p>
+        If this was not you, ignore this message.<br /><br />Code is valid for 15 minutes.</p>
       </body>
     </html>
     """
@@ -82,15 +91,28 @@ async def send_code(email):
         server.sendmail(
             sender_email, receiver_email, message.as_string()
         )
-
-    pending_verifies[email.author] = code
+    # code expires in 15 minutes
+    client.pending_verifies[email.author] = {"code": code, "expiration": expire, "email": receiver_email} 
     print(f"User {email.author} sent verification code {code} to {email.content}")
 
 
 # Check if a code is valid
 async def check_code(message):
-    if not str(pending_verifies[message.author]) == message.content:
-        await message.reply(f"This is not an active code")
-    else:
-        await message.author.add_roles(discord.utils.get(client.guild.roles, name="Verified"))
-        await message.reply("You have been successfully verified.")
+    server_user = discord.utils.get(client.guild.members,id=message.author.id)
+    code = message.content.strip().split(' ',1)[1]
+    is_expired = client.pending_verifies[message.author]["expiration"] < time.time()
+    reply_msg = "Invalid code."
+    if str(client.pending_verifies[message.author]["code"]) == code:
+        if not is_expired:
+            await server_user.add_roles(discord.utils.get(client.guild.roles, name="Verified Student"))
+            reply_msg = "You have been successfully verified."
+            client.update_session('verified_users',{"id": server_user.id, "email": client.pending_verifies[message.author]["email"]},append=True)
+        del client.pending_verifies[message.author]
+    await message.reply(reply_msg)
+
+@officers_only
+async def get_verified_users(user):
+    tosend = "Verified users:\n\n"
+    for u in client.session_data.verified_users:
+        tosend += f"  • <@{u['id']}>: {u['email']}\n"
+    return tosend
