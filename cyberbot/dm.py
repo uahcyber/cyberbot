@@ -23,17 +23,19 @@ from .flag import add_flag, add_solve, change_flag, delete_flag, check_flag, get
 from .run import client
 from .voice import is_member_in_voice_channel
 from .utils import flag_regex, make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
+from .verification import handle_verification, get_verified_users
 
 async def handle_dm(user, msg=None):
     tosend = "beep beep boop boop, whatcha doin?"
-    pieces = msg.rstrip().split(' ',1)
-    async with user.typing():
+    pieces = msg.content.rstrip().split(' ',1)
+    async with msg.channel.typing():
         # check that user is a member of the current guild
         user = discord.utils.get(client.guild.members,name=user.name, discriminator=user.discriminator)
         user_roles = [role.name for role in user.roles]
         if "Member" not in user_roles:
             tosend = f"It does not seem like you are a member of the {client.clubname} server."
-            return tosend
+            await send_dm(user,tosend)
+            return
         if pieces[0] == "!nominate":
             if client.election and client.election.nomination_started:
                 if not is_member_in_voice_channel(user,"meetings"): # must be present to vote/nominate
@@ -60,6 +62,11 @@ async def handle_dm(user, msg=None):
             tosend = await flag_submission(user,pieces[0]) or tosend
         elif pieces[0] == "!watch":
             tosend = await set_react_id(user,pieces[1]) or tosend
+        elif pieces[0] == "!verify" and client.verification_enabled:
+            await handle_verification(msg)
+            return
+        elif pieces[0] == "!getverified":
+            tosend = await get_verified_users(user) or tosend
     await send_dm(user,tosend)
 
 @officers_only
