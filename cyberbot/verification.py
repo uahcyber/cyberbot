@@ -162,7 +162,7 @@ async def remove_verification(username):
 
 @officers_only
 async def verifications(user, msg):
-    pieces = msg.split(" ")
+    pieces = msg.split(" ", 1)
     tosend = "Invalid input."
     if pieces[0] == "getVerified":
         tosend = get_verified_users()
