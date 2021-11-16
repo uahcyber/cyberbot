@@ -22,7 +22,7 @@ import os
 from .flag import add_flag, add_solve, change_flag, delete_flag, check_flag, get_flag
 from .run import client
 from .voice import is_member_in_voice_channel
-from .utils import flag_regex, make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message
+from .utils import flag_regex, make_file, officers_only, send_dm, parse_username_and_friend, clean_vote_message, split_msg
 from .verification import handle_verification, verifications
 
 async def handle_dm(user, msg=None):
@@ -70,7 +70,8 @@ async def handle_dm(user, msg=None):
             tosend = await verifications(user,pieces[1]) or tosend
     if early_exit:
         return
-    await send_dm(user,tosend)
+    for i in split_msg(tosend):
+        await send_dm(user,i)
 
 @officers_only
 async def member_stats(user,command):

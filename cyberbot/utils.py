@@ -92,3 +92,19 @@ def clean_vote_message(content,author):
         if "!vote" in content or "!nominate" in content:
             content = discord_tag_regex.sub("[REDACTED]",content)
     return content
+
+def split_msg(msg: str, maxLength=2000):
+    if len(msg) <= maxLength:
+        return msg
+    sep = "\n" if "\n" in msg else " "
+    splitted = msg.split(sep)
+    pieces = [[]]
+    index = 0
+    for data in splitted:
+        if len(pieces[index]) + len(data) > maxLength:
+            index += 1
+            pieces[index] = []
+        pieces[index].append(data)
+    for i, piece in enumerate(pieces):
+        pieces[i] = sep.join(piece)
+    return pieces
