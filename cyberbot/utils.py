@@ -101,9 +101,9 @@ def split_msg(msg: str, maxLength=2000):
     pieces = [[]]
     index = 0
     for data in splitted:
-        if len(pieces[index]) + len(data) > maxLength - (len(pieces[index])*len(sep)) - 1:
+        if len(sep.join(pieces[index])) + len(data) > maxLength - 2: # -2 just for safety
             index += 1
-            pieces[index] = []
+            pieces.append([])
         pieces[index].append(data)
     for i, piece in enumerate(pieces):
         pieces[i] = sep.join(piece)
