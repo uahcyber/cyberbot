@@ -16,6 +16,7 @@
 # along with CyberBot.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+from re import split
 import arrow
 import discord
 import os
@@ -70,7 +71,11 @@ async def handle_dm(user, msg=None):
             tosend = await verifications(user,pieces[1]) or tosend
     if early_exit:
         return
-    for i in split_msg(tosend):
+    splitMsg = split_msg(tosend)
+    if type(splitMsg) == str:
+        await send_dm(user,splitMsg)
+        return
+    for i in splitMsg:
         await send_dm(user,i)
 
 @officers_only
