@@ -47,11 +47,11 @@ async def handle_dm(user, msg=None):
                     return
                 tosend = await client.election.handle_nominate(user,pieces[1]) or tosend
         elif pieces[0] == "!vote":
-            if not is_member_in_voice_channel(user,"meetings"): # must be present to vote/nominate
+            if not is_member_in_voice_channel(user,"📋 meetings"): # must be present to vote/nominate
                 await send_dm(user, "You must be in the meetings voice channel to vote during this election.")
                 return
             if client.election and client.election.election_started:
-                if not is_member_in_voice_channel(user,"meetings"):
+                if not is_member_in_voice_channel(user,"📋 meetings"):
                     return
                 tosend = client.election.handle_vote(user,pieces[1]) or tosend
         elif pieces[0] == "!stats":

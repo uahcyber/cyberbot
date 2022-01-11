@@ -18,7 +18,7 @@
 
 import discord
 from .run import client
-from .utils import delete_election_from_session, officers_only, send_dm
+from .utils import delete_election_from_session, officers_only, send_dm, split_msg
 
 
 async def handle_rule_accept_channel(message,role_name,intro_channel="introductions"):
@@ -48,12 +48,11 @@ async def handle_election_channel(message):
         if len(slices) > 1:
             ret = "An election is not currently in session."
             if slices[1] == "nominations":
-                await message.channel.send(client.election.get_nominations() if client.election else ret)
-                return
+                ret = client.election.get_nominations() if client.election else ret
             elif slices[1] == "votes":
-                await message.channel.send(client.election.get_votes() if client.election else ret)
-                return
-        await message.channel.send("unknown command")
+                ret = client.election.get_votes() if client.election else ret
+        else:
+            ret = "unknown command"
     elif slices[0] == "!nomination":
         if len(slices) == 2:
             split_slices = slices[1].split(' ',1)
@@ -63,23 +62,28 @@ async def handle_election_channel(message):
                 await message.channel.send("Setting up nomination data (this will take just a minute)...")
                 ret = await client.election.start_nomination(split_slices[1].split(' ') if len(split_slices) > 1 else None)
                 # end election instance if nomination start was executed incorrectly
-                await message.channel.send(ret)
                 if "Please specify" in ret or "No members" in ret:
                     client.end_election_instance()
             elif split_slices[0] == "stop":
-                await message.channel.send(client.election.stop_nomination(split_slices[1] if len(split_slices) > 1 else None) if client.election else ret)
+                ret = client.election.stop_nomination(split_slices[1] if len(split_slices) > 1 else None) if client.election else ret
     elif slices[0] == "!election":
         if len(slices) > 1:
             ret = "An election cycle has not yet begun."
             if slices[1] == "start":
-                await message.channel.send(client.election.start_election() if client.election else ret)
+                ret = client.election.start_election() if client.election else ret
             elif slices[1] == "stop":
-                await message.channel.send(client.election.stop_election() if client.election else ret)
+                ret = client.election.stop_election() if client.election else ret
                 if ret != "An election cycle has not yet begun.":
                     client.end_election_instance()
             elif slices[1].startswith("delete"):
                 if " " in slices[1]:
                     name = slices[1].split(' ',1)[1]
-                    await message.channel.send(delete_election_from_session(name))
+                    ret = delete_election_from_session(name)
                 else:
-                    return "Incorrect usage\nusage: `!election delete [name]`"
+                    ret = "Incorrect usage\nusage: `!election delete [name]`"
+    splitMsg = split_msg(ret)
+    if type(splitMsg) == str:
+        await message.channel.send(splitMsg)
+        return
+    for i in splitMsg:
+        await message.channel.send(i)
