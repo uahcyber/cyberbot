@@ -258,7 +258,7 @@ class Voting:
         self.name = pieces.pop(0)
         # do election session stuff here
         self.positions_to_elect.extend([pos.lower() for pos in pieces])
-        await self.__populate_messages()
+        #await self.__populate_messages()
         self.eligible_members = self.__get_eligible_members()
         if not self.eligible_members:
             # no one is eligible, cannot do nominations
@@ -339,7 +339,7 @@ class Voting:
                 return True
         return False
     
-    def __get_eligible_members(self,election_channel="meetings"):
+    def __get_eligible_members(self):
         eligible = []
         for member in client.guild.members:
             if self.__is_member_eligible(member):
@@ -362,16 +362,15 @@ class Voting:
 
     def __is_member_eligible(self,nominee, msg_count=6, semester_length=16):
         now = arrow.get('2020-12-10T00:00:00.00+00:00')# last day of semester #arrow.utcnow() 
-        # semester_length in weeks
+        # must be presently enrolled at university
+        nom_roles = [role.name for role in nominee.roles]
+        if "Alum" in nom_roles or "Verified Student" not in nom_roles:
+            return False
         # must be a member for at least 1 semester
         if nominee.joined_at:
             member_for = (now - arrow.get(nominee.joined_at)).days
             if member_for < (semester_length * 7):
                 return False
-        # must be presently enrolled at university
-        nom_roles = [role.name for role in nominee.roles]
-        if "Alum" in nom_roles or "Member" not in nom_roles or "Verified Student" not in nom_roles:
-            return False
         # user should have sent a certain number of messages in the past semester
         # checks if half of the messages were sent in the first half of the semester and half in the last
         #nom_msgs = [x for x in self.messages if (x.author.id == nominee.id) and ((now - arrow.get(x.created_at)).days < semester_length * 7)]
