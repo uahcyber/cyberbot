@@ -93,6 +93,17 @@ def clean_vote_message(content,author):
             content = discord_tag_regex.sub("[REDACTED]",content)
     return content
 
+
+def delete_election_from_session(name: str):
+    for i, e in enumerate(client.session_data.electionData):
+        if name.lower() in e.keys():
+            dataCopy = client.session_data.electionData.copy()
+            del dataCopy[i]
+            client.update_session('electionData', dataCopy)
+            return f"Deleted election '{name}'"
+    return f"Election with name '{name}' not found in session data!"
+
+
 def split_msg(msg: str, maxLength=2000):
     if len(msg) <= maxLength:
         return msg

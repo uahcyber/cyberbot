@@ -18,7 +18,7 @@
 
 import discord
 from .run import client
-from .utils import officers_only, send_dm
+from .utils import delete_election_from_session, officers_only, send_dm
 
 
 async def handle_rule_accept_channel(message,role_name,intro_channel="introductions"):
@@ -77,3 +77,9 @@ async def handle_election_channel(message):
                 await message.channel.send(client.election.stop_election() if client.election else ret)
                 if ret != "An election cycle has not yet begun.":
                     client.end_election_instance()
+            elif slices[1].startswith("delete"):
+                if " " in slices[1]:
+                    name = slices[1].split(' ',1)[1]
+                    await message.channel.send(delete_election_from_session(name))
+                else:
+                    return "Incorrect usage\nusage: `!election delete [name]`"

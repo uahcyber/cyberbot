@@ -27,7 +27,8 @@ from .utils import flag_regex, make_file, officers_only, send_dm, parse_username
 from .verification import handle_verification, verifications
 
 async def handle_dm(user, msg=None):
-    tosend = "beep beep boop boop, whatcha doin?"
+    errorMsg = "beep beep boop boop, whatcha doin?"
+    tosend = errorMsg
     pieces = msg.content.rstrip().split(' ',1)
     early_exit = False
     async with msg.channel.typing():
@@ -40,14 +41,15 @@ async def handle_dm(user, msg=None):
             return
         if pieces[0] == "!nominate":
             if client.election and client.election.nomination_started:
-                if not is_member_in_voice_channel(user,"meetings"): # must be present to vote/nominate
-                    return
                 if user.id in client.election.users_waiting_for_nom:
                     return # make sure a user waiting for a response cannot nominate someone during the wait
                 if pieces[1] in ('accept', 'reject','cancel','second'):
                     return
                 tosend = await client.election.handle_nominate(user,pieces[1]) or tosend
         elif pieces[0] == "!vote":
+            if not is_member_in_voice_channel(user,"meetings"): # must be present to vote/nominate
+                await send_dm(user, "You must be in the meetings voice channel to vote during this election.")
+                return
             if client.election and client.election.election_started:
                 if not is_member_in_voice_channel(user,"meetings"):
                     return
@@ -69,6 +71,10 @@ async def handle_dm(user, msg=None):
             early_exit = True
         elif pieces[0] == "!verification":
             tosend = await verifications(user,pieces[1]) or tosend
+        elif pieces[0] == "!delNominee":
+            tosend = await delete_nominee(user,pieces[1])
+        if client.election and tosend == errorMsg and user.id in client.election.usersWaitingForStatement: # don't error out when nominee sends campaign statement
+            early_exit = True
     if early_exit:
         return
     splitMsg = split_msg(tosend)
@@ -77,6 +83,28 @@ async def handle_dm(user, msg=None):
         return
     for i in splitMsg:
         await send_dm(user,i)
+
+
+@officers_only
+async def delete_nominee(user, msg):
+    if "#" not in msg:
+        return "Incorrect usage\nusage: !delNominee [username#discriminator]"
+    nominee = discord.utils.get(client.guild.members, name=msg.split('#')[0], discriminator=msg.split('#')[1])
+    if not nominee:
+        return "No user with that name found."
+    await send_dm(user,"Waiting for nominee's confirmation...")
+    await send_dm(nominee,f"<@{user.id}> is attempting to delete your nomination for candidacy. Do you accept? [y/n]")
+    def dmCheck(m):
+        return isinstance(m.channel, discord.DMChannel) and m.author.id == nominee.id
+    msg = await client.wait_for('message',check=dmCheck)
+    msg = msg.content.rstrip().lower()
+    if msg == "y":
+        if client.election.delete_nomination(nominee.id):
+            return "Deleted nomination"
+    else:
+        return f"<@{nominee.id}> rejected your attempt to delete their nomination."
+    return "Failed to delete nomination"
+
 
 @officers_only
 async def member_stats(user,command):

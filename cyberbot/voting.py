@@ -26,14 +26,15 @@ from .utils import diff_lists, send_dm, parse_username_and_friend
 
 @dataclass
 class Nomination:
-    user: discord.Member
+    user: str
     position: str
+    statement: str
     by: List[int] = field(default_factory=list)
 
 
 @dataclass
 class Candidate:
-    user: discord.Member
+    user: str
     position: str
     votes: int = 0
 
@@ -49,19 +50,22 @@ class PositionList:
 
 @dataclass
 class Voter:
-    user: discord.Member
+    user: str
     positions: List[str] = field(default_factory=list) # positions that this user has voted for
 
 
 class Voting:
 
+    name: str
     positions_to_elect = []
     nominations = []
     candidates = []
     voters = []
     users_waiting_for_nom = []
+    usersWaitingForStatement = []
     messages = []
     eligible_members = []
+
 
     def __init__(self,clubname):
         self.clubname = clubname
@@ -74,11 +78,14 @@ class Voting:
         pieces = parse_username_and_friend(params)
         if not (pieces and len(pieces) == 2):
             return bad_input
+        userRoles = [role.name for role in user.roles]
+        if "Verified Student" not in userRoles:
+            return "You must be a Verified Student to use the voting function."
         username = pieces[0]
         position = pieces[1].lower()
         candidate = discord.utils.get(client.guild.members, name=username.split('#')[0], discriminator=username.split('#')[1])
         for voter in self.voters:
-            if voter.user == user:
+            if voter.user == user.id:
                 if voter.positions == self.positions_to_elect: # voter has voted for every needed position
                     return "You have voted for all positions in this election. Please wait for everyone else to submit their votes."
                 if position in voter.positions:
@@ -88,25 +95,26 @@ class Voting:
             return f"{username} was not found in the {self.clubname} server!"
         castvote = False
         for cand in self.candidates:
-            if cand.user == candidate:
+            if cand.user == candidate.id:
                 if cand.position == position:
                     # vote for candidate
                     cand.add_vote()
                     voter_exists = False
                     for voter in self.voters:
                         # find user and record vote for position
-                        if voter.user == user:
+                        if voter.user == user.id:
                             voter_exists = True
                             voter.positions.append(cand.position)
                             break
                     if not voter_exists:
-                        v = Voter(user,[cand.position])
+                        v = Voter(user.id,[cand.position])
                         self.voters.append(v)
                     castvote = True
                     break
+        self.__update_election_session_data()
         if castvote:
-            return f"Vote for {position.capitalize()} cast for {candidate.nick}!"
-        return f"Unable to cast vote for {candidate.nick} for the position of {position.capitalize()}."
+            return f"Vote for {position.capitalize()} cast for {candidate.name}!"
+        return f"Unable to cast vote for {candidate.name} for the position of {position.capitalize()}."
 
 
     def get_votes(self):
@@ -124,13 +132,15 @@ class Voting:
         for position in self.__sort_candidate_votes(): # returns PositionList
             final_results_fmt += f'Position: **{position.position.capitalize()}**\n'
             for i,cand in enumerate(position.users):
+                thisUser = discord.utils.get(client.guild.members, id=cand.user)
                 final_results_fmt += f"\t- "
                 if i == 0:
-                    final_results_fmt += f'**{cand.user.display_name}\t\t {cand.votes} votes\n\t\t<@{cand.user.id}> is the new {position.position}!**\n'
-                    winners.append({"user":cand.user, "position": position.position})
+                    final_results_fmt += f'**{thisUser.display_name}\t\t {cand.votes} votes\n\t\t<@{cand.user}> is the new {position.position.capitalize()}!**\n'
+                    winners.append({"user":thisUser, "position": position.position})
                 else:
-                    final_results_fmt += f'{cand.user.name}\t\t {cand.votes} votes\n'
+                    final_results_fmt += f'{thisUser.name}\t\t {cand.votes} votes\n'
             final_results_fmt += "\n"
+        self.__update_election_session_data()
         return final_results_fmt
 
 
@@ -153,8 +163,9 @@ class Voting:
         for nom in all_noms:
             fmtstr += f"Position: **{nom.position.capitalize()}**\n"
             for user in nom.users:
+                thisUser = discord.utils.get(client.guild.members, id=nom.user)
                 plural = "s" if user.votes > 1 else ""
-                fmtstr += f"\t<@{user.user.id}>: {user.votes} nomination{plural}\n\t\tVote command: `!vote {user.user} {nom.position.capitalize()}`\n"
+                fmtstr += f"\t<@{user.user}>: {user.votes} nomination{plural}\n\t\tVote command: `!vote {thisUser.name}#{thisUser.discriminator} {nom.position.capitalize()}`\n"
             fmtstr += "\n"
         return fmtstr
 
@@ -166,7 +177,9 @@ class Voting:
         tosend = None
         if not (pieces and len(pieces) == 2):
             return bad_input
-        
+        userRoles = [role.name for role in user.roles]
+        if "Verified Student" not in userRoles:
+            return "You must be a Verified Student to use the nomination function."
         username = pieces[0]
         position = pieces[1].lower()
         if position not in self.positions_to_elect:
@@ -177,15 +190,13 @@ class Voting:
         for nom in self.nominations:
             if user.id in nom.by:
                 return "You have already nominated someone for a position."
-            if nom.user == nominee:
+            if nom.user == nominee.id:
                 self.users_waiting_for_nom.append(user.id)
                 await send_dm(user, f"{nominee.name} has already accepted the nomination for **{nom.position}**. To second this nomination, please reply with:\n`!nominate second`\nOtherwise, reply with:\n`!nominate cancel`")
                 while True:
-                    msg = await client.wait_for('message')
-                    if not isinstance(msg.channel, discord.DMChannel):
-                        continue
-                    if msg.author.id != user.id:
-                        continue
+                    def dmCheck(m):
+                        return isinstance(m.channel, discord.DMChannel) and m.author.id == user.id
+                    msg = await client.wait_for('message',check=dmCheck)
                     msg = msg.content.rstrip().lower().split(' ')
                     if msg[0] == "!nominate" and len(msg) == 2:
                         if msg[1] == 'second':
@@ -199,41 +210,53 @@ class Voting:
                     await send_dm(user, bad_input)
                 nomexists = True
         if not nomexists:
-            if nominee not in self.eligible_members:
+            if nominee.id not in self.eligible_members:
                 return f"{nominee.name} does not meet the qualifications for an officer position in the {self.clubname}."
             self.users_waiting_for_nom.append(user.id)
             if nominee != user:
                 await send_dm(nominee, f"You have been nominated for the officer position: {position.capitalize()} of the UAH Cybersecurity Club!\nIf you accept, please indicate as such by replying with:\n`!nominate accept`\nIf you do **NOT** accept, reply with:\n`!nominate reject`")
                 while True:
-                    msg = await client.wait_for('message')
-                    if not isinstance(msg.channel, discord.DMChannel):
-                        continue
-                    if msg.author.id != nominee.id:
-                        continue
+                    def dmCheck(m):
+                        return isinstance(m.channel, discord.DMChannel) and m.author.id == nominee.id
+                    msg = await client.wait_for('message',check=dmCheck)
                     msg = msg.content.rstrip().lower().split(' ')
                     if msg[0] == '!nominate' and len(msg) == 2:
                         if msg[1] == 'reject':
                             self.users_waiting_for_nom.remove(user.id)
+                            self.__update_election_session_data()
                             return f"{nominee.name} **rejected** your nomination for {position.capitalize()}."
                         elif msg[1] == 'accept':
                             break
                     await send_dm(nominee, bad_input)
             else:
                 tosend = f"You have successfully nominated yourself for {position.capitalize()}!"
-            nom = Nomination(nominee,position,[user.id])
+            await send_dm(nominee, f"Please send a message stating your intentions as {position.capitalize()}. This is your chance to convince people to vote for you. You can only answer this prompt once.")
+            self.usersWaitingForStatement.append(nominee.id)
+            def dmCheck(m):
+                return isinstance(m.channel, discord.DMChannel) and m.author.id == nominee.id
+            msg = await client.wait_for('message',check=dmCheck)
+            nom = Nomination(nominee.id,position,msg.content,[user.id])
             self.nominations.append(nom)
+            ec = discord.utils.get(client.guild.channels,name=client.electionChannel)
+            if ec:
+                nomStr = f"Nomination: **{position.capitalize()}**\n"
+                await ec.send(f"{nomStr}" + "="*(len(nomStr)-5) + f"\nMember: <@{nominee.id}> (`{nominee.name}#{nominee.discriminator}`)\nCampaign Statement:\n```\n{nom.statement}\n```")
+            self.usersWaitingForStatement.remove(nominee.id)
         tosend = tosend or f"{nominee.name} has **accepted** your nomination for {position.capitalize()}!"
         self.users_waiting_for_nom.remove(user.id)
+        self.__update_election_session_data()
         return tosend
-
+        
 
     async def start_nomination(self,pieces):
         if not pieces:
-            return "Please specify positions to add.\nExample:\n\t`!nomination start Treasurer President Secretary`"
+            return "Please specify the name of the election and positions to add.\nExample:\n\t`!nomination start SP2022 Treasurer President Secretary`"
         # 0, 1 indices are !nomination start
         if self.nomination_started:
             # already started
             return "The nomination period has already started.\nTo restart, run:\n\t`!nomination stop clear`\nthen,\n\t`!nomination start`"
+        self.name = pieces.pop(0)
+        # do election session stuff here
         self.positions_to_elect.extend([pos.lower() for pos in pieces])
         await self.__populate_messages()
         self.eligible_members = self.__get_eligible_members()
@@ -244,6 +267,8 @@ class Voting:
             self.eligible_members.clear()
             return "No members are eligible for positions at the moment. Make sure those who plan on running are in attendance."
         self.nomination_started = True
+        if not self.__does_election_exist_in_session():
+            client.update_session('electionData', {self.name: [self.positions_to_elect, self.nominations, self.candidates, self.voters, self.users_waiting_for_nom, self.usersWaitingForStatement, self.eligible_members, self.election_started, self.nomination_started]}, append=True)
         return self.__get_nomination_start_string()
 
 
@@ -269,6 +294,7 @@ class Voting:
         self.eligible_members.clear()
         self.messages.clear()
         self.nomination_started = False
+        self.__update_election_session_data()
         return tosend + '.'
 
 
@@ -286,6 +312,7 @@ class Voting:
             self.candidates.append(cand)
         self.election_started = True
         tosend += self.__get_vote_start_string()
+        self.__update_election_session_data()
         return tosend
 
 
@@ -301,19 +328,22 @@ class Voting:
             return "All positions have not yet been voted for, election will continue."
         results = self.get_votes()
         self.election_started = False
+        self.__update_election_session_data()
         return "Election has ended.\n" + results
 
+
+    def delete_nomination(self,nomineeId):
+        for i,nom in enumerate(self.nominations):
+            if nom.user == nomineeId:
+                del self.nominations[i]
+                return True
+        return False
     
     def __get_eligible_members(self,election_channel="meetings"):
         eligible = []
-        voice_channel = discord.utils.get(client.guild.channels,name=election_channel)
-        if voice_channel:
-            participants = members_in_voice_channel(voice_channel)
         for member in client.guild.members:
-            if voice_channel and member not in participants:
-                continue
             if self.__is_member_eligible(member):
-                eligible.append(member)
+                eligible.append(member.id)
         return eligible
 
 
@@ -330,8 +360,8 @@ class Voting:
         return results
 
 
-    def __is_member_eligible(self,nominee,msg_count=6, semester_length=16):
-        now = arrow.get('2020-12-12T20:15:00.859374+00:00')# last day of semester #arrow.utcnow() 
+    def __is_member_eligible(self,nominee, msg_count=6, semester_length=16):
+        now = arrow.get('2020-12-10T00:00:00.00+00:00')# last day of semester #arrow.utcnow() 
         # semester_length in weeks
         # must be a member for at least 1 semester
         if nominee.joined_at:
@@ -340,20 +370,22 @@ class Voting:
                 return False
         # must be presently enrolled at university
         nom_roles = [role.name for role in nominee.roles]
-        if "Alum" in nom_roles or "Member" not in nom_roles or "Officers" in nom_roles:
+        if "Alum" in nom_roles or "Member" not in nom_roles or "Verified Student" not in nom_roles:
             return False
         # user should have sent a certain number of messages in the past semester
         # checks if half of the messages were sent in the first half of the semester and half in the last
-        nom_msgs = [x for x in self.messages if (x.author.id == nominee.id) and ((now - arrow.get(x.created_at)).days < semester_length * 7)]
-        first_half_msgs  = [x for x in nom_msgs if (arrow.get(x.created_at)) < now.shift(weeks=-semester_length/2)]
-        if (len(first_half_msgs) < msg_count//2) or (len(diff_lists(nom_msgs,first_half_msgs)) < (msg_count - (msg_count//2))):
-            return False
+        #nom_msgs = [x for x in self.messages if (x.author.id == nominee.id) and ((now - arrow.get(x.created_at)).days < semester_length * 7)]
+        #first_half_msgs = [x for x in nom_msgs if (arrow.get(x.created_at)) < now.shift(weeks=-semester_length/2)]
+        #if (len(first_half_msgs) < msg_count//2) or (len(diff_lists(nom_msgs,first_half_msgs)) < (msg_count - (msg_count//2))):
+        #    return False
         return True
 
 
     def __get_nomination_start_string(self):
         memberlist = 'Eligible members for nomination:\n'
-        memberlist += '\n'.join(f'\t- <@{member.id}> (`{member.name}#{member.discriminator}`)' for member in self.eligible_members)
+        for member in self.eligible_members:
+            thisMember = discord.utils.get(client.guild.members, id=member)
+            memberlist += f'\t- <@{member}> (`{thisMember.name}#{thisMember.discriminator}`)\n'
         position_list = ''
         for pos in self.positions_to_elect:
             position_list += f'\t- **{pos.capitalize()}**\n'
@@ -368,12 +400,29 @@ class Voting:
         for pos in self.positions_to_elect:
             position_list += f'\t- **{pos.capitalize()}**\n'
             for cand in self.candidates:
+                thisCand = discord.utils.get(client.guild.members, id=cand.user)
                 if cand.position == pos:
-                    position_list += f'\t\t- <@{cand.user.id}>\n\t\t  vote command: `!vote {cand.user} {pos.capitalize()}`\n'
+                    position_list += f'\t\t- <@{cand.user}>\n\t\t  vote command: `!vote {thisCand.name}#{thisCand.discriminator} {pos.capitalize()}`\n'
         return (f"Votes may now be cast.\nPositions up for election and their candidates:\n\n{position_list}\nInstructions:\n"
                     f"Send a **direct message** to <@{client.user.id}> specifying who you want to elect"
                     "by sending the associated `!vote` command as listed above.")
     
+
+    def __does_election_exist_in_session(self):
+        for e in client.session_data.electionData:
+            if self.name in e.keys():
+                return True
+        return False
+    
+    def __update_election_session_data(self):
+        for i, e in enumerate(client.session_data.electionData):
+            if self.name in e.keys():
+                dataCopy = client.session_data.electionData.copy()
+                dataCopy[i] = {self.name: [self.positions_to_elect, self.nominations, self.candidates, self.voters, self.users_waiting_for_nom, self.usersWaitingForStatement, self.eligible_members, self.election_started, self.nomination_started]}
+                client.update_session('electionData', dataCopy)
+                return
+        raise KeyError(f"Election with name '{self.name}' not found in session data!")
+
     async def __populate_messages(self):
         for channel in client.guild.channels:
             if not (channel and isinstance(channel,discord.TextChannel)):

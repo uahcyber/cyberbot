@@ -36,6 +36,7 @@ class Session:
     flags: List[dict] = field(default_factory=list)
     react_watch_list: List[dict] = field(default_factory=list)
     verified_users: List[dict] = field(default_factory=list)
+    electionData: List[dict] = field(default_factory=list)
 
 class CyberBot(discord.Client):
 
@@ -49,8 +50,9 @@ class CyberBot(discord.Client):
     verification_enabled = True
     organization = None
     pending_verifies = {}
+    electionChannel = None
 
-    def __init__(self,clubname="generic club",datafile=None,verification_enabled=True,org="example.com",*args,**kwargs):
+    def __init__(self,clubname="generic club",datafile=None,verification_enabled=True,org="example.com",electionChannel="elections",*args,**kwargs):
         intents = discord.Intents.default()
         intents.members = True # for seeing members of the server
         self.guild_name = os.getenv('DISCORD_GUILD')
@@ -60,6 +62,7 @@ class CyberBot(discord.Client):
         self.datafile = datafile
         self.verification_enabled = verification_enabled
         self.organization = org
+        self.electionChannel = electionChannel
 
 
     async def on_ready(self):
@@ -87,7 +90,7 @@ class CyberBot(discord.Client):
             return
         if message.channel.name == "accept-rules-here":
             await handle_rule_accept_channel(message,'Member')
-        elif message.channel.name == "elections":
+        elif message.channel.name == self.electionChannel:
             await handle_election_channel(message)
 
 
@@ -158,7 +161,11 @@ class CyberBot(discord.Client):
         with open(self.datafile,'rb') as fp:
             data = pickle.load(fp)
         self.session_data = data
-        print(f'loaded session data: {str(self.session_data)}')
+        self.do_session_migrate() # only migrates when necessary
+        try:
+            print(f'loaded session data: {str(self.session_data)}')
+        except(AttributeError):
+            print("Error migrating session, please contact the developers.")
 
 
     def update_session(self, item, data=None, append=False):
@@ -174,10 +181,26 @@ class CyberBot(discord.Client):
         if append:
             sess_item.append(data)
         else:
-            sess_item = data
+            setattr(self.session_data,item,data)
         with open(self.datafile,'wb') as fp:
             pickle.dump(self.session_data,fp)
 
+    def do_session_migrate(self):
+        from cyberbot.utils import diff_lists
+        newKeys = Session.__dataclass_fields__.keys()
+        oldKeys = self.session_data.__dict__.keys()
+        diff = diff_lists(newKeys, oldKeys)
+        if not diff:
+            return
+        print("Migrating session data...")
+        newSession = Session()
+        commonClasses = list(set.intersection(*map(set,[newKeys,oldKeys])))
+        for c in commonClasses:
+            setattr(newSession,c,getattr(self.session_data,c))
+        self.session_data = newSession
+        with open(self.datafile,'wb') as fp:
+            pickle.dump(self.session_data,fp)
+        print("Successfully migrated session data")
 
     def run(self,*args,**kwargs):
         super(self.__class__,self).run(self.token,*args,**kwargs)
