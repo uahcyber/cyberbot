@@ -132,6 +132,13 @@ def get_verified_users():
         tosend += f"  • <@{u['id']}>: {u['email']}\n"
     return tosend
 
+def get_verified_emails():
+    if len(client.session_data.verified_users) == 0:
+        return "no verified users"
+    tosend = "Verified emails:\n\n"
+    tosend += ','.join([x['email'] for x in client.session_data.verified_users])
+    return tosend
+
 def get_pending_verifications():
     if len(client.pending_verifies) == 0:
         return "no pending verifications"
@@ -165,7 +172,10 @@ async def verifications(user, msg):
     pieces = msg.split(" ", 1)
     tosend = "Invalid input."
     if pieces[0] == "getVerified":
-        tosend = get_verified_users()
+        if len(pieces) > 1 and pieces[1] == "emails":
+            tosend = get_verified_emails()
+        else:
+            tosend = get_verified_users()
     elif pieces[0] == "getPending":
         tosend = get_pending_verifications()
     elif pieces[0] == "rmPending" and len(pieces) == 2:
