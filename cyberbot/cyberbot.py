@@ -136,6 +136,14 @@ class CyberBot(discord.Client):
         # remove user from self.non_members if they leave without accepting the rules
         if member.id in self.non_members:
             self.non_members.remove(member.id)
+            return
+        # remove from self.pending_verifies if there
+        delKeys = [k for k, v in self.pending_verifies.items() if k.id == member.id]
+        for key in delKeys:
+            del self.pending_verifies[key]
+        # remove from verifications, no need to remove role since they are leaving
+        from .verification import remove_verification
+        remove_verification(member.id,removeRole=False)
 
 
     def start_election_instance(self):
