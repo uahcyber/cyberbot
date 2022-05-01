@@ -52,13 +52,13 @@ async def handle_verification(message):
     if len(split_msg) != 2:
         await message.reply("Invalid command.")
         return
+    if message.author in client.pending_verifies:
+        await check_code(message)
+        return
     email = split_msg[1].strip()
     check, err = validate_email(email)
     if not check:
         await message.reply(err)
-        return
-    if message.author in client.pending_verifies:
-        await check_code(message)
         return
     if email in [x['email'] for x in client.session_data.verified_users]:
         message.reply(f"Please do not re-use emails for verification. Please contact an admin if this is a legitimate verification request.")
