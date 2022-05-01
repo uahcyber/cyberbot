@@ -17,12 +17,13 @@
 #
 
 import os
+import re
 import discord
 from .run import client
 import smtplib
 import ssl
 import time
-from .utils import officers_only
+from .utils import officers_only, email_regex
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from random import randint
@@ -30,6 +31,18 @@ from random import randint
 blocked_emails = [
     'uahcybersec@uah.edu',
     ]
+
+def validate_email(email):
+    emailMatch = re.fullmatch(email_regex,email)
+    if not emailMatch:
+        return False, "Invalid email."
+    domain = emailMatch.group(1)
+    if domain != client.organization:
+        return False, f"Your email must me associated with {client.organization}."
+    if email in blocked_emails:
+        return False, "This email is blocked."
+    return True, None
+    
 
 async def handle_verification(message):
     if message.author.id in [x["id"] for x in client.session_data.verified_users]:
@@ -39,9 +52,10 @@ async def handle_verification(message):
     if len(split_msg) != 2:
         await message.reply("Invalid command.")
         return
-    email = split_msg[1]
-    if email in blocked_emails:
-        await message.reply("Invalid email.")
+    email = split_msg[1].strip()
+    check, err = validate_email(email)
+    if not check:
+        await message.reply(err)
         return
     if message.author in client.pending_verifies:
         await check_code(message)
@@ -49,11 +63,8 @@ async def handle_verification(message):
     if email in [x['email'] for x in client.session_data.verified_users]:
         message.reply(f"Please do not re-use emails for verification. Please contact an admin if this is a legitimate verification request.")
         return
-    if email[-len(client.organization):] == client.organization and " " not in email:
-        await send_code(message)
-        await message.reply(f"Sent verification code to {email}")
-    else:
-        await message.reply(f"Your email must me associated with {client.organization}")
+    await send_code(message)
+    await message.reply(f"Sent verification code to {email}")
 
 
 # send a verification code to the email the user entered
