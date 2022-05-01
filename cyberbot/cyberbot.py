@@ -132,7 +132,8 @@ class CyberBot(discord.Client):
         self.non_members.append(member.id)
 
 
-    async def on_member_remove(self,member):
+    async def on_raw_member_remove(self,payload):
+        member = payload.user
         # remove user from self.non_members if they leave without accepting the rules
         if member.id in self.non_members:
             self.non_members.remove(member.id)
