@@ -25,19 +25,32 @@ discord_tag_regex = re.compile(r"\w+#\d{4}")
 flag_regex = re.compile(r"uah{.*}")
 email_regex = re.compile(r"^(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*\")@((?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\]))$")
 
+def get_roles_from_args(args):
+    roles = []
+    for arg in args:
+        if isinstance(arg,discord.Member):
+            roles = [role.name for role in arg.roles]
+            break
+        elif isinstance(arg,discord.Message):
+            user = discord.utils.get(client.guild.members,name=arg.author.name,discriminator=arg.author.discriminator)
+            roles = [role.name for role in user.roles]
+            break
+    return roles
+
 def officers_only(func):
     @functools.wraps(func)
     async def wrapper(*args,**kwargs):
-        roles = []
-        for arg in args:
-            if isinstance(arg,discord.Member):
-                roles = [role.name for role in arg.roles]
-                break
-            elif isinstance(arg,discord.Message):
-                user = discord.utils.get(client.guild.members,name=arg.author.name,discriminator=arg.author.discriminator)
-                roles = [role.name for role in user.roles]
-                break
-        if "Officers" in roles:
+        roles = get_roles_from_args(args)
+        if "Officers" in roles or "Admin" in roles:
+            return await func(*args, **kwargs)
+        return
+    return wrapper
+
+def admin_only(func):
+    @functools.wraps(func)
+    async def wrapper(*args,**kwargs):
+        roles = get_roles_from_args(args)
+        if "Admin" in roles:
             return await func(*args, **kwargs)
         return
     return wrapper
